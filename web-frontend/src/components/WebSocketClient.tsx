@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 interface WebSocketMessage {
   type: string;
@@ -6,7 +6,7 @@ interface WebSocketMessage {
   timestamp: number;
 }
 
-interface WebSocketClientProps {
+interface UseWebSocketClientProps {
   url: string;
   onMessage?: (message: WebSocketMessage) => void;
   onOpen?: () => void;
@@ -14,13 +14,22 @@ interface WebSocketClientProps {
   onError?: (error: Event) => void;
 }
 
-const WebSocketClient: React.FC<WebSocketClientProps> = ({
+interface WebSocketClientInstance {
+  connected: boolean;
+  messages: WebSocketMessage[];
+  sendMessage: (data: any) => void;
+  closeConnection: () => void;
+  setConnected: (value: boolean) => void;
+  setMessages: (value: WebSocketMessage[] | ((prev: WebSocketMessage[]) => WebSocketMessage[])) => void;
+}
+
+export function useWebSocketClient({
   url,
   onMessage,
   onOpen,
   onClose,
   onError
-}) => {
+}: UseWebSocketClientProps): WebSocketClientInstance {
   const [connected, setConnected] = useState(false);
   const [messages, setMessages] = useState<WebSocketMessage[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
@@ -71,19 +80,19 @@ const WebSocketClient: React.FC<WebSocketClientProps> = ({
     };
   }, [url, onMessage, onOpen, onClose, onError]);
 
-  const sendMessage = (data: any) => {
+  const sendMessage = useCallback((data: any) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify(data));
     } else {
       console.warn('WebSocket not connected');
     }
-  };
+  }, []);
 
-  const closeConnection = () => {
+  const closeConnection = useCallback(() => {
     if (wsRef.current) {
       wsRef.current.close();
     }
-  };
+  }, []);
 
   return {
     connected,
@@ -93,6 +102,4 @@ const WebSocketClient: React.FC<WebSocketClientProps> = ({
     setConnected,
     setMessages
   };
-};
-
-export default WebSocketClient;
+}

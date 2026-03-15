@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(taskkill:*)",
+      "Bash(netstat:*)",
+      "Bash(cd:*)",
+      "Bash(curl:*)"
+    ]
+  }
+}

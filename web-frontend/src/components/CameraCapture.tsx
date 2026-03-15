@@ -38,6 +38,13 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
     if (!videoRef.current || !stream) return;
 
     const video = videoRef.current;
+    
+    // Attach stream to video element so it actually displays
+    if (video.srcObject !== stream) {
+      video.srcObject = stream;
+    }
+
+    let animationFrameId: number;
 
     const processFrame = () => {
       if (!isActive || !onFrame || !canvasRef.current) return;
@@ -45,21 +52,31 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
 
-      if (ctx) {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
+      if (ctx && video.videoWidth > 0 && video.videoHeight > 0) {
+        // Ensure canvas dimensions match video
+        if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+        }
 
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         onFrame(imageData);
       }
 
-      requestAnimationFrame(processFrame);
+      animationFrameId = requestAnimationFrame(processFrame);
     };
 
     video.onloadedmetadata = () => {
+      // Start processing when video is ready
       setIsActive(true);
       processFrame();
+    };
+
+    return () => {
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+      }
     };
   }, [stream, isActive, onFrame]);
 
@@ -106,10 +123,10 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
   };
 
   return (
-    <div className="relative bg-black rounded-lg overflow-hidden">
+    <div className="relative rounded-2xl overflow-hidden shadow-sm bg-black border border-white/10 dark:border-white/5 w-full h-[480px]">
       {error && (
-        <div className="absolute inset-0 flex items-center justify-center bg-red-900 text-white p-4">
-          <p className="text-center">{error}</p>
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-red-900/90 backdrop-blur-sm text-white p-4">
+          <p className="text-center font-medium">{error}</p>
         </div>
       )}
 
@@ -118,8 +135,7 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
         autoPlay
         playsInline
         muted
-        className="w-full h-full object-cover"
-        style={{ width, height }}
+        className="w-full h-full object-contain"
       />
 
       <canvas
@@ -128,14 +144,18 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
       />
 
       {!stream && !error && (
-        <div className="absolute inset-0 flex items-center justify-center bg-gray-900 text-white">
-          <p>Loading camera...</p>
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/80 backdrop-blur-md text-white">
+          <div className="flex items-center space-x-3">
+            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+            <p className="font-medium tracking-wide">Initializing camera...</p>
+          </div>
         </div>
       )}
 
-      <div className="absolute bottom-2 right-2">
-        <div className={`px-2 py-1 rounded text-xs ${isActive ? 'bg-green-600' : 'bg-red-600'} text-white`}>
-          {isActive ? '● Recording' : '○ Off'}
+      <div className="absolute top-4 right-4 z-20">
+        <div className={`px-3 py-1.5 rounded-full text-xs font-semibold tracking-wider flex items-center space-x-2 shadow-lg backdrop-blur-md ${isActive ? 'bg-green-500/20 text-green-300 border border-green-500/30' : 'bg-red-500/20 text-red-300 border border-red-500/30'}`}>
+          <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-green-400 animate-pulse' : 'bg-red-500'}`}></div>
+          <span>{isActive ? 'RECORDING' : 'OFF'}</span>
         </div>
       </div>
     </div>
