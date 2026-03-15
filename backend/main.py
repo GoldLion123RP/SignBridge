@@ -145,7 +145,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 continue
 
             # Process frame with hand tracker
-            landmarks = hand_tracker.process_frame(frame)
+            tracking_result = hand_tracker.process_frame(frame)
 
             response = {
                 "status": "received",
@@ -155,9 +155,10 @@ async def websocket_endpoint(websocket: WebSocket):
                 "audio": None
             }
 
-            if landmarks:
-                # Extract features
-                features = hand_tracker.extract_features(landmarks)
+            if tracking_result and tracking_result.get("landmarks") and len(tracking_result["landmarks"]) > 0:
+                # Extract features from the first detected hand
+                hand_landmarks = tracking_result["landmarks"][0]
+                features = hand_tracker.extract_features(hand_landmarks)
 
                 if features:
                     # Predict gesture
