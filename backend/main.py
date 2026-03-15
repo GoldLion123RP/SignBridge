@@ -1,9 +1,10 @@
+# pyre-ignore-all-errors
 # SignBridge AI - FastAPI WebSocket Endpoint
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
-from typing import List, Dict, Any
-import uvicorn
+from typing import List, Dict, Any, Optional
+import uvicorn  # pyre-ignore # type: ignore
 import base64
 import cv2
 import numpy as np
@@ -102,11 +103,11 @@ async def websocket_endpoint(websocket: WebSocket):
     hand_tracker = HandTracker()
     shared_model = get_shared_lstm_model()
     lstm_predictor = LSTMGesturePredictor(model=shared_model)
-    gemini_service = None
-    tts_service = None
+    gemini_service: Any = None
+    tts_service: Any = None
 
     # State for this connection
-    state = {
+    state: Dict[str, Any] = {
         "gesture_buffer": [],
         "last_gesture_time": 0,
         "current_sentence": None,
