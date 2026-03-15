@@ -1,180 +1,86 @@
-# SignBridge AI - Data Collection Script
-
-import cv2
-import mediapipe as mp
-import numpy as np
+import cv2  # pyre-ignore
+import numpy as np  # pyre-ignore
 import os
-from datetime import datetime
-from typing import List, Dict
-import json
-import pickle
+import time
+import sys
 
-class DataCollector:
-    def __init__(self, output_dir: str = "../data", landmark_count: int = 21):
-        self.output_dir = output_dir
-        self.landmark_count = landmark_count
+# Ensure Python can find the `services` module
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from services.hand_tracker import HandTracker  # pyre-ignore
 
-        # Initialize MediaPipe Hands
-        self.mp_hands = mp.solutions.hands
-        self.hands = self.mp_hands.Hands(
-            max_num_hands=1,
-            min_detection_confidence=0.7,
-            min_tracking_confidence=0.5,
-            static_image_mode=False
-        )
+# Define the gestures we want to collect
+GESTURES = ["A", "B", "C", "Hello", "Thank_You"]
 
-        os.makedirs(output_dir, exist_ok=True)
+# Settings
+FRAMES_PER_GESTURE = 100
+DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 
-    def extract_landmarks(self, frame: np.ndarray) -> np.ndarray:
-        """Extract hand landmarks from a frame."""
-        image_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        results = self.hands.process(image_rgb)
+def main():
+    if not os.path.exists(DATA_DIR):
+        os.makedirs(DATA_DIR)
+        
+    print("SignBridge AI - Indian Sign Language Data Collector")
+    print("--------------------------------------------------")
+    print("This script will guide you through recording landmarks for ISL digits/letters.")
+    print("Make sure your webcam is ready.")
+    
+    tracker = HandTracker()
+    cap = cv2.VideoCapture(0)
+    
+    for gesture in GESTURES:
+        input(f"\nPress ENTER to start recording for '{gesture}'...")
+        print("Starting in 3 seconds...")
+        time.sleep(1)
+        print("2...")
+        time.sleep(1)
+        print("1...")
+        time.sleep(1)
+        print(f"RECORDING '{gesture}'! Please move your hand slightly for variation.")
+        
+        frames_collected: int = 0
+        gesture_data = []
+        
+        while frames_collected < FRAMES_PER_GESTURE:
+            ret, frame = cap.read()
+            if not ret:
+                print("Failed to grab frame.")
+                break
+                
+            # Process using the exact same logic as your WebSocket backend
+            tracking_result = tracker.process_frame(frame)
+            
+            # Extract features safely
+            if tracking_result and tracking_result.get("landmarks"):
+                 # Draw landmarks for user feedback
+                for hand_landmarks in tracking_result["landmarks"]:
+                    for lm in hand_landmarks:
+                        cv2.circle(frame, (lm['x'], lm['y']), 3, (0, 255, 0), -1)
+                        
+                # Extract features from the first hand
+                features = tracker.extract_features(tracking_result["landmarks"][0])
+                if features:
+                    gesture_data.append(features)
+                    frames_collected += 1  # pyre-ignore
+                    
+            # UI Feedback
+            cv2.putText(frame, f"Recording: {gesture}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+            cv2.putText(frame, f"Frames: {frames_collected}/{FRAMES_PER_GESTURE}", (10, 70), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+            cv2.imshow("SignBridge Data Collection", frame)
+            
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                print("User quit.")
+                break
 
-        if results.multi_hand_landmarks:
-            landmarks = []
-            for hand_landmarks in results.multi_hand_landmarks:
-                for landmark in hand_landmarks.landmark:
-                    landmarks.extend([landmark.x, landmark.y, landmark.z])
+        # Save data to numpy file
+        if gesture_data:
+            save_path = os.path.join(DATA_DIR, f"{gesture}.npy")
+            np.save(save_path, np.array(gesture_data))
+            print(f"Successfully saved {frames_collected} frames for '{gesture}' to {save_path}")
 
-            return np.array(landmarks, dtype=np.float32)
-
-        return np.zeros(self.landmark_count * 3, dtype=np.float32)
-
-    def collect_samples(self, gesture_name: str, num_samples: int = 100):
-        """Collect samples for a specific gesture."""
-        print(f"\nCollecting data for: {gesture_name}")
-        print("Press 'SPACE' to capture sample, 'q' to quit early")
-
-        cap = cv2.VideoCapture(0)
-        collected = []
-
-        try:
-            frame_idx = 0
-            while len(collected) < num_samples:
-                ret, frame = cap.read()
-                if not ret:
-                    print("Error: Could not read frame")
-                    break
-
-                # Extract landmarks
-                landmarks = self.extract_landmarks(frame)
-
-                if np.any(landmarks):  # Check if hand is detected
-                    collected.append(landmarks)
-                    print(f"  Sample {len(collected)}/{num_samples}", end='\r')
-
-                    # Display frame with progress
-                    cv2.putText(frame, f"{{gesture_name}}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-                    cv2.putText(frame, f"Samples: {len(collected)}/{num_samples}", (10, 70), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
-
-                else:
-                    cv2.putText(frame, "No hand detected", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-
-                cv2.imshow(f'Collecting: {gesture_name}', frame)
-                key = cv2.waitKey(1) & 0xFF
-
-                if key == ord('q'):
-                    print("\nCollection cancelled")
-                    break
-
-                frame_idx += 1
-
-        finally:
-            cap.release()
-            cv2.destroyAllWindows()
-
-        # Save collected data
-        if collected:
-            self.save_data(gesture_name, np.array(collected))
-            print(f"\nSaved {len(collected)} samples for '{gesture_name}'")
-            return len(collected)
-
-        return 0
-
-    def save_data(self, gesture_name: str, data: np.ndarray):
-        """Save collected data to file."""
-        # Create gesture subdirectory
-        gesture_dir = os.path.join(self.output_dir, gesture_name)
-        os.makedirs(gesture_dir, exist_ok=True)
-
-        # Generate unique filename with timestamp
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"{gesture_name}_{timestamp}.npy"
-        filepath = os.path.join(gesture_dir, filename)
-
-        np.save(filepath, data)
-
-        # Also update manifest file
-        self.update_manifest(gesture_name, filepath, len(data))
-
-    def update_manifest(self, gesture_name: str, filepath: str, num_samples: int):
-        """Update the data manifest with new collection info."""
-        manifest_path = os.path.join(self.output_dir, "manifest.json")
-        manifest = {}
-
-        if os.path.exists(manifest_path):
-            with open(manifest_path, 'r') as f:
-                manifest = json.load(f)
-
-        if gesture_name not in manifest:
-            manifest[gesture_name] = []
-
-        manifest[gesture_name].append({
-            "file": filepath,
-            "samples": num_samples,
-            "timestamp": datetime.now().isoformat()
-        })
-
-        with open(manifest_path, 'w') as f:
-            json.dump(manifest, f, indent=2)
-
-    def load_all_data(self) -> tuple:
-        """Load all collected data for training."""
-        X, y = [], []
-
-        gestures = [d for d in os.listdir(self.output_dir) if os.path.isdir(os.path.join(self.output_dir, d)) and d != "manifest.json"]
-
-        for gesture_idx, gesture_name in enumerate(sorted(gestures)):
-            gesture_dir = os.path.join(self.output_dir, gesture_name)
-
-            for filename in os.listdir(gesture_dir):
-                if filename.endswith('.npy'):
-                    filepath = os.path.join(gesture_dir, filename)
-                    data = np.load(filepath)
-
-                    for sample in data:
-                        X.append(sample)
-                        y.append(gesture_idx)
-
-        return np.array(X), np.array(y)
-
-    def close(self):
-        """Release resources."""
-        self.hands.close()
-
+    print("\nAll done!")
+    cap.release()
+    cv2.destroyAllWindows()
+    tracker.close()
 
 if __name__ == "__main__":
-    # Configuration
-    GESTURES = [
-        "thumbs_up", "thumbs_down", "peace", "ok", "fist", "open_hand",
-        "point_up", "point_down", "point_left", "point_right"
-    ]
-    SAMPLES_PER_GESTURE = 100
-
-    collector = DataCollector()
-
-    print("=" * 60)
-    print("SignBridge AI - Data Collection")
-    print("=" * 60)
-
-    for gesture in GESTURES:
-        input(f"\nPress Enter to start collecting '{gesture}'...")
-        collector.collect_samples(gesture, SAMPLES_PER_GESTURE)
-
-    collector.close()
-    print("\nData collection complete!")
-
-    # Show summary
-    X, y = collector.load_all_data()
-    print(f"\nTotal samples collected: {{len(X)}}")
-    print(f"Number of gestures: {{len(np.unique(y))}}")
+    main()

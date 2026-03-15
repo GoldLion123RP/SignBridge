@@ -1,27 +1,26 @@
 # SignBridge AI - LSTM Gesture Prediction Service
 
+# pyre-ignore-all-errors
 import numpy as np
-from tensorflow.keras.models import Sequential, load_model
-from tensorflow.keras.layers import LSTM, Dense, Dropout
-from tensorflow.keras.preprocessing.sequence import pad_sequences
-from typing import List, Tuple, Optional, Union
+from tensorflow.keras.models import Sequential, load_model  # pyre-ignore
+from tensorflow.keras.layers import LSTM, Dense, Dropout  # pyre-ignore
+from tensorflow.keras.preprocessing.sequence import pad_sequences  # pyre-ignore
+from typing import List, Tuple, Optional, Union, Any
 import os
 
 class LSTMGesturePredictor:
-    def __init__(self, model_path: str = "models/lstm_gesture_model.h5", sequence_length: int = 30, model=None):
+    def __init__(self, model_path: str = "models/isl_gesture_model.h5", sequence_length: int = 1, model=None):
         self.model_path = model_path
         self.sequence_length = sequence_length
         self.model = model
         self.gestures = [
-            "thumbs_up", "thumbs_down", "peace", "ok", "fist", "open_hand",
-            "point_up", "point_down", "point_left", "point_right", "rock_on",
-            "heart", "clap", "wave", "call_me", "stop", "question", "exclamation"
+            "A", "B", "C", "Hello", "Thank_You"
         ]
         self.gesture_to_id = {gesture: idx for idx, gesture in enumerate(self.gestures)}
         self.id_to_gesture = {idx: gesture for gesture, idx in self.gesture_to_id.items()}
 
-        self.buffer = []  # Store recent frames for sequence prediction
-        self.current_prediction = None
+        self.buffer: List[List[float]] = []  # Store recent frames for sequence prediction
+        self.current_prediction: Optional[Tuple[str, float]] = None
         self.confidence_threshold = 0.7
 
         self._load_model()
@@ -43,9 +42,9 @@ class LSTMGesturePredictor:
     def _create_model(self):
         """Create a new LSTM model architecture."""
         self.model = Sequential([
-            LSTM(128, return_sequences=True, input_shape=(self.sequence_length, 10)),
-            Dropout(0.2),
-            LSTM(64, return_sequences=False),
+            LSTM(64, return_sequences=True, activation='relu', input_shape=(self.sequence_length, 24)),
+            LSTM(128, return_sequences=True, activation='relu'),
+            LSTM(64, return_sequences=False, activation='relu'),
             Dropout(0.2),
             Dense(64, activation='relu'),
             Dense(len(self.gestures), activation='softmax')

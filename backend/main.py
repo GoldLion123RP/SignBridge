@@ -1,22 +1,22 @@
 # pyre-ignore-all-errors
 # SignBridge AI - FastAPI WebSocket Endpoint
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect  # pyre-ignore
+from fastapi.responses import HTMLResponse  # pyre-ignore
 from typing import List, Dict, Any, Optional
 import uvicorn  # pyre-ignore # type: ignore
 import base64
-import cv2
+import cv2  # pyre-ignore # type: ignore
 import numpy as np
 import time
 import os
 import json
 
-from services.hand_tracker import HandTracker
-from services.lstm_predictor import LSTMGesturePredictor
-from services.gemini_service import GeminiService
-from services.tts_service import TTSService
-from config import config
+from services.hand_tracker import HandTracker  # pyre-ignore
+from services.lstm_predictor import LSTMGesturePredictor  # pyre-ignore
+from services.gemini_service import GeminiService  # pyre-ignore
+from services.tts_service import TTSService  # pyre-ignore
+from config import config  # pyre-ignore
 
 app = FastAPI(title="SignBridge AI", description="Real-time sign language translation system")
 
@@ -27,7 +27,7 @@ def get_shared_lstm_model():
     global _shared_lstm_model
     if _shared_lstm_model is None:
         try:
-            from tensorflow.keras.models import load_model
+            from tensorflow.keras.models import load_model  # pyre-ignore
             if os.path.exists(config.LSTM_MODEL_PATH):
                 print(f"Pre-loading LSTM model from {config.LSTM_MODEL_PATH}...")
                 _shared_lstm_model = load_model(config.LSTM_MODEL_PATH)
@@ -201,15 +201,18 @@ async def websocket_endpoint(websocket: WebSocket):
                         if should_generate and len(state["gesture_buffer"]) > 0:
                             # Generate sentence via Gemini
                             init_gemini_tts()
-                            if gemini_service and tts_service:
+                            if gemini_service is not None and tts_service is not None:
                                 try:
-                                    sentence = gemini_service.translate_sign_to_text(state["gesture_buffer"])
+                                    assert gemini_service is not None
+                                    # Generate sentence immediately
+                                    sentence: str = gemini_service.translate_sign_to_text(state["gesture_buffer"])  # pyre-ignore
                                     if sentence:
                                         response["sentence"] = sentence
                                         state["current_sentence"] = sentence
 
-                                        # Generate TTS
-                                        audio_b64 = tts_service.text_to_speech_base64(sentence)
+                                        assert tts_service is not None
+                                        # Generate audio
+                                        audio_b64: Optional[str] = tts_service.text_to_speech_base64(sentence)  # pyre-ignore
                                         if audio_b64:
                                             response["audio"] = audio_b64
                                             state["current_audio"] = audio_b64
