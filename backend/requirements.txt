@@ -1,0 +1,27 @@
+# SignBridge AI Backend Dependencies
+
+# FastAPI Core
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+websockets==16.0
+
+# MediaPipe for Hand Tracking
+mediapipe==0.10.14
+opencv-python==4.11.0.86
+
+# Machine Learning
+numpy==1.26.4
+tensorflow-cpu==2.17.0
+
+# AI Services
+google-genai==1.67.0
+gTTS==2.5.4
+
+# Utilities
+python-dotenv==1.2.2
+python-multipart==0.0.6
+pydantic==2.12.5
+
+# CORS for Frontend Communication
+python-multipart==0.0.6
+python-jose[cryptography]==3.0.0

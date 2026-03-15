@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx:*)",
+      "Bash(cd web-frontend:*)",
+      "Bash(icacls:*)",
+      "Bash(eza:*)",
+      "Bash(pip show:*)",
+      "Bash(pip install:*)",
+      "Bash(python:*)",
+      "Bash(curl:*)",
+      "Bash(git add:*)"
+    ]
+  }
+}
