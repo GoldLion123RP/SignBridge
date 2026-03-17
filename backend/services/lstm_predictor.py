@@ -42,7 +42,7 @@ class LSTMGesturePredictor:
     def _create_model(self):
         """Create a new LSTM model architecture."""
         self.model = Sequential([
-            LSTM(64, return_sequences=True, activation='relu', input_shape=(self.sequence_length, 24)),
+            LSTM(64, return_sequences=True, activation='relu', input_shape=(self.sequence_length, 12)),
             LSTM(128, return_sequences=True, activation='relu'),
             LSTM(64, return_sequences=False, activation='relu'),
             Dropout(0.2),
@@ -72,9 +72,14 @@ class LSTMGesturePredictor:
         if len(self.buffer) < self.sequence_length:
             return None
 
-        # Convert to numpy array and pad if necessary
-        sequence = np.array(self.buffer)
-        sequence = pad_sequences([sequence], maxlen=self.sequence_length, dtype='float32')
+        # Ensure the sequence matches the input_shape of (1, 12)
+        # Reshape for LSTM: [batch, timesteps, features] -> (1, 1, 12)
+        sequence = np.array(self.buffer, dtype='float32')
+        if sequence.shape[0] != self.sequence_length or sequence.shape[1] != 12:
+             return None
+
+        # Add batch dimension
+        sequence = np.expand_dims(sequence, axis=0)
 
         try:
             # Make prediction

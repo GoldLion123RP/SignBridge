@@ -111,31 +111,30 @@ export default function Page() {
 
         // ONLY update UI if there is a valid gesture or sentence.
         // Ignore empty 'heartbeats' where both gesture and sentence are null so the UI doesn't get overridden constantly.
-        if (gesture || sentence) {
-          const newPrediction: Prediction = {
-            gesture: gesture || 'unknown',
-            confidence,
-            sentence: sentence || '',
-            audio: audio || ''
-          };
+        // Ensure the UI updates for 'unknown' or dropped confidence frames too
+        const newPrediction: Prediction = {
+          gesture: gesture || 'unknown',
+          confidence,
+          sentence: sentence || '',
+          audio: audio || ''
+        };
 
-          setPrediction(prev => {
-             // If we just got a gesture but no sentence, preserve the previous sentence so it doesn't disappear.
-             if (gesture && !sentence && prev) {
-                 return { ...newPrediction, sentence: prev.sentence, audio: prev.audio };
-             }
-             return newPrediction;
-          });
+        setPrediction(prev => {
+            // Keep the previous sentence alive if the new frame is just a gesture
+            if (gesture && !sentence && prev) {
+                return { ...newPrediction, sentence: prev.sentence, audio: prev.audio };
+            }
+            return newPrediction;
+        });
 
-          // Only add to history if a FULL sentence was recognized
-          if (sentence) {
-             setHistory(prev => [newPrediction, ...prev.slice(0, 9)]);
-          }
+        // Only add to history if a FULL sentence was recognized
+        if (sentence) {
+            setHistory(prev => [newPrediction, ...prev.slice(0, 9)]);
+        }
 
-          // Play audio if available
-          if (audio && !audioPlaying) {
-            playAudio(audio);
-          }
+        // Play audio if available
+        if (audio && !audioPlaying) {
+          playAudio(audio);
         }
       }
     } catch (error) {
