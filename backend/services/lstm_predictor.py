@@ -8,20 +8,28 @@ from tensorflow.keras.preprocessing.sequence import pad_sequences  # pyre-ignore
 from typing import List, Tuple, Optional, Union, Any
 import os
 
+
 class LSTMGesturePredictor:
-    def __init__(self, model_path: str = "models/isl_gesture_model.h5", sequence_length: int = 1, model=None):
+    def __init__(
+        self,
+        model_path: str = "models/isl_gesture_model.h5",
+        sequence_length: int = 30,
+        model=None,
+    ):
         self.model_path = model_path
         self.sequence_length = sequence_length
         self.model = model
-        self.gestures = [
-            "A", "B", "C", "Hello", "Thank_You"
-        ]
+        self.gestures = ["A", "B", "C", "Hello", "Thank_You"]
         self.gesture_to_id = {gesture: idx for idx, gesture in enumerate(self.gestures)}
-        self.id_to_gesture = {idx: gesture for gesture, idx in self.gesture_to_id.items()}
+        self.id_to_gesture = {
+            idx: gesture for gesture, idx in self.gesture_to_id.items()
+        }
 
-        self.buffer: List[List[float]] = []  # Store recent frames for sequence prediction
+        self.buffer: List[
+            List[float]
+        ] = []  # Store recent frames for sequence prediction
         self.current_prediction: Optional[Tuple[str, float]] = None
-        self.confidence_threshold = 0.7
+        self.confidence_threshold = 0.3
 
         self._load_model()
 
@@ -41,19 +49,24 @@ class LSTMGesturePredictor:
 
     def _create_model(self):
         """Create a new LSTM model architecture."""
-        self.model = Sequential([
-            LSTM(64, return_sequences=True, activation='relu', input_shape=(self.sequence_length, 12)),
-            LSTM(128, return_sequences=True, activation='relu'),
-            LSTM(64, return_sequences=False, activation='relu'),
-            Dropout(0.2),
-            Dense(64, activation='relu'),
-            Dense(len(self.gestures), activation='softmax')
-        ])
+        self.model = Sequential(
+            [
+                LSTM(
+                    64,
+                    return_sequences=True,
+                    activation="relu",
+                    input_shape=(self.sequence_length, 97),
+                ),
+                LSTM(128, return_sequences=True, activation="relu"),
+                LSTM(64, return_sequences=False, activation="relu"),
+                Dropout(0.2),
+                Dense(64, activation="relu"),
+                Dense(len(self.gestures), activation="softmax"),
+            ]
+        )
 
         self.model.compile(
-            optimizer='adam',
-            loss='categorical_crossentropy',
-            metrics=['accuracy']
+            optimizer="adam", loss="categorical_crossentropy", metrics=["accuracy"]
         )
 
         print("Created new LSTM model")
@@ -72,11 +85,11 @@ class LSTMGesturePredictor:
         if len(self.buffer) < self.sequence_length:
             return None
 
-        # Ensure the sequence matches the input_shape of (1, 12)
-        # Reshape for LSTM: [batch, timesteps, features] -> (1, 1, 12)
-        sequence = np.array(self.buffer, dtype='float32')
-        if sequence.shape[0] != self.sequence_length or sequence.shape[1] != 12:
-             return None
+        # Ensure the sequence matches the input_shape of (sequence_length, 97)
+        # Reshape for LSTM: [batch, timesteps, features] -> (1, sequence_length, 97)
+        sequence = np.array(self.buffer, dtype="float32")
+        if sequence.shape[0] != self.sequence_length or sequence.shape[1] != 97:
+            return None
 
         # Add batch dimension
         sequence = np.expand_dims(sequence, axis=0)
@@ -90,13 +103,21 @@ class LSTMGesturePredictor:
             gesture = self.id_to_gesture.get(prediction_idx, "unknown")
             self.current_prediction = (gesture, confidence)
 
-            return (gesture, confidence) if confidence > self.confidence_threshold else None
+            if confidence > self.confidence_threshold:
+                return (gesture, confidence)
+            else:
+                print(
+                    f"Low confidence prediction: {gesture} ({confidence:.3f} < {self.confidence_threshold})"
+                )
+                return None
 
         except Exception as e:
             print(f"Prediction error: {e}")
             return None
 
-    def train(self, X: List[List[float]], y: List[int], epochs: int = 10, batch_size: int = 32):
+    def train(
+        self, X: List[List[float]], y: List[int], epochs: int = 10, batch_size: int = 32
+    ):
         """Train the LSTM model with new data."""
         if not X or not y:
             print("No training data provided")
@@ -107,7 +128,7 @@ class LSTMGesturePredictor:
         y_np = np.array(y)
 
         # Pad sequences
-        X_padded = pad_sequences(X_np, maxlen=self.sequence_length, dtype='float32')
+        X_padded = pad_sequences(X_np, maxlen=self.sequence_length, dtype="float32")
 
         # One-hot encode labels
         y_encoded = np.eye(len(self.gestures))[y_np]
@@ -115,11 +136,12 @@ class LSTMGesturePredictor:
         try:
             # Train model
             history = self.model.fit(
-                X_padded, y_encoded,
+                X_padded,
+                y_encoded,
                 epochs=epochs,
                 batch_size=batch_size,
                 validation_split=0.2,
-                verbose=1
+                verbose=1,
             )
 
             # Save model

@@ -21,10 +21,11 @@ SignBridge/
 │   ├── main.py               # FastAPI entry point
 │   ├── requirements.txt
 │   ├── services/             # Modular service classes
-│   │   ├── hand_tracker.py   # MediaPipe hand tracking
-│   │   ├── lstm_predictor.py # LSTM model inference
-│   │   ├── gemini_service.py # Gemini API integration
-│   │   └── tts_service.py    # gTTS text-to-speech
+│   │   ├── hand_tracker.py      # MediaPipe hand tracking
+│   │   ├── holistic_tracker.py  # MediaPipe holistic (hand+face+body)
+│   │   ├── lstm_predictor.py    # LSTM model inference
+│   │   ├── gemini_service.py    # Gemini API integration
+│   │   └── tts_service.py       # gTTS text-to-speech
 │   ├── models/               # Saved .h5 model files
 │   ├── data/                 # Training data (.npy files)
 │   ├── scripts/              # Data collection & training scripts
@@ -35,8 +36,8 @@ SignBridge/
 │   └── package.json
 ├── .env.local                # Real API keys (GITIGNORED)
 ├── .env.example              # Template for other devs (committed)
-├── CLAUDE.md                 # This file (committed)
-├── CLAUDE.local.md           # Personal overrides (GITIGNORED)
+├── AGENTS.md                 # This file (committed)
+├── AGENTS.local.md           # Personal overrides (GITIGNORED)
 ├── TODO.md                   # Progress tracker (auto-updated)
 ├── README.md
 └── MOBILE_INTEGRATION.md     # Flutter integration guide

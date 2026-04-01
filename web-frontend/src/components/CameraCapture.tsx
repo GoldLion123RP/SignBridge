@@ -6,6 +6,7 @@ interface CameraCaptureProps {
   onFrame?: (frame: ImageData) => void;
   facingMode?: 'user' | 'environment';
   enabled?: boolean;
+  landmarks?: any;
 }
 
 const CameraCapture: React.FC<CameraCaptureProps> = ({
@@ -13,13 +14,15 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
   height = 480,
   onFrame,
   facingMode = 'user',
-  enabled = true
+  enabled = true,
+  landmarks
 }) => {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isActive, setIsActive] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const landmarkCanvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     if (!enabled) {
@@ -79,6 +82,73 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
       }
     };
   }, [stream, isActive, onFrame]);
+
+  useEffect(() => {
+    if (!landmarkCanvasRef.current || !videoRef.current) return;
+    const canvas = landmarkCanvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    canvas.width = videoRef.current.videoWidth || 640;
+    canvas.height = videoRef.current.videoHeight || 480;
+    
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    if (!landmarks) return;
+    
+    if (landmarks.hands) {
+      ctx.fillStyle = '#22c55e';
+      for (const hand of landmarks.hands) {
+        if (hand.fingertips) {
+          for (const tip of hand.fingertips) {
+            const x = tip.x * canvas.width;
+            const y = tip.y * canvas.height;
+            ctx.beginPath();
+            ctx.arc(x, y, 6, 0, 2 * Math.PI);
+            ctx.fill();
+          }
+        }
+      }
+    }
+    
+    if (landmarks.face) {
+      ctx.fillStyle = '#3b82f6';
+      for (const point of landmarks.face) {
+        const x = point.x * canvas.width;
+        const y = point.y * canvas.height;
+        ctx.beginPath();
+        ctx.arc(x, y, 3, 0, 2 * Math.PI);
+        ctx.fill();
+      }
+    }
+    
+    if (landmarks.pose && landmarks.pose.length > 0) {
+      ctx.fillStyle = '#ef4444';
+      ctx.strokeStyle = '#ef4444';
+      ctx.lineWidth = 2;
+      
+      const posePoints = landmarks.pose.map((p: any) => ({
+        x: p.x * canvas.width,
+        y: p.y * canvas.height
+      }));
+      
+      for (const point of posePoints) {
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, 5, 0, 2 * Math.PI);
+        ctx.fill();
+      }
+      
+      const connections = [[0,2], [2,4], [1,3], [3,5], [0,1]];
+      for (const [a, b] of connections) {
+        if (posePoints[a] && posePoints[b]) {
+          ctx.beginPath();
+          ctx.moveTo(posePoints[a].x, posePoints[a].y);
+          ctx.lineTo(posePoints[b].x, posePoints[b].y);
+          ctx.stroke();
+        }
+      }
+    }
+  }, [landmarks]);
 
   const startCamera = async () => {
     try {
@@ -141,6 +211,11 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
       <canvas
         ref={canvasRef}
         className="hidden"
+      />
+
+      <canvas
+        ref={landmarkCanvasRef}
+        className="absolute top-0 left-0 w-full h-full pointer-events-none"
       />
 
       {!stream && !error && (

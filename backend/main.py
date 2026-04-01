@@ -12,35 +12,43 @@ import time
 import os
 import json
 
-from services.hand_tracker import HandTracker  # pyre-ignore
+from services.holistic_tracker import HolisticTracker  # pyre-ignore
 from services.lstm_predictor import LSTMGesturePredictor  # pyre-ignore
 from services.gemini_service import GeminiService  # pyre-ignore
 from services.tts_service import TTSService  # pyre-ignore
 from config import config  # pyre-ignore
 
-app = FastAPI(title="SignBridge AI", description="Real-time sign language translation system")
+app = FastAPI(
+    title="SignBridge AI", description="Real-time sign language translation system"
+)
 
 # Global pre-loaded LSTM model to avoid loading multiple times
 _shared_lstm_model = None
+
 
 def get_shared_lstm_model():
     global _shared_lstm_model
     if _shared_lstm_model is None:
         try:
             from tensorflow.keras.models import load_model  # pyre-ignore
+
             if os.path.exists(config.LSTM_MODEL_PATH):
                 print(f"Pre-loading LSTM model from {config.LSTM_MODEL_PATH}...")
                 _shared_lstm_model = load_model(config.LSTM_MODEL_PATH)
                 print("LSTM model loaded successfully")
             else:
-                print(f"LSTM model not found at {config.LSTM_MODEL_PATH}. Will create a new one on first connection.")
+                print(
+                    f"LSTM model not found at {config.LSTM_MODEL_PATH}. Will create a new one on first connection."
+                )
         except Exception as e:
             print(f"Could not pre-load LSTM model: {e}")
     return _shared_lstm_model
 
+
 @app.get("/")
 async def get():
-    html_content = """
+    html_content = (
+        """
     <html>
         <head>
             <title>SignBridge AI Backend</title>
@@ -77,12 +85,16 @@ async def get():
   "sentence": "Hello!",
   "audio": "base64_encoded_mp3"
 }</pre>
-                <p><em>Server time: """ + time.strftime("%Y-%m-%d %H:%M:%S") + """</em></p>
+                <p><em>Server time: """
+        + time.strftime("%Y-%m-%d %H:%M:%S")
+        + """</em></p>
             </div>
         </body>
     </html>
     """
+    )
     return HTMLResponse(content=html_content)
+
 
 def decode_frame(base64_frame: str) -> np.ndarray:
     """Decode base64 JPEG frame to numpy array (BGR)."""
@@ -95,12 +107,13 @@ def decode_frame(base64_frame: str) -> np.ndarray:
         print(f"Frame decode error: {e}")
         return None
 
+
 @app.websocket("/ws/video")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
 
     # Initialize per-connection services
-    hand_tracker = HandTracker()
+    tracker = HolisticTracker()
     shared_model = get_shared_lstm_model()
     lstm_predictor = LSTMGesturePredictor(model=shared_model)
     gemini_service: Any = None
@@ -114,8 +127,8 @@ async def websocket_endpoint(websocket: WebSocket):
         "current_audio": None,
         "last_activity": 0,
         "sentence_cooldown": 5.0,  # Seconds to wait before generating new sentence
-        "pause_threshold": 1.5,   # Seconds of no gesture to consider pause
-        "max_gestures_per_sentence": 10
+        "pause_threshold": 1.5,  # Seconds of no gesture to consider pause
+        "max_gestures_per_sentence": 10,
     }
 
     # Initialize Gemini/TTS only when needed
@@ -142,24 +155,28 @@ async def websocket_endpoint(websocket: WebSocket):
             frame = decode_frame(frame_b64)
 
             if frame is None:
-                await websocket.send_json({"status": "error", "message": "Invalid frame"})
+                await websocket.send_json(
+                    {"status": "error", "message": "Invalid frame"}
+                )
                 continue
 
-            # Process frame with hand tracker
-            tracking_result = hand_tracker.process_frame(frame)
+            # Process frame with holistic tracker
+            tracking_result = tracker.process_frame(frame)
 
             response = {
                 "status": "received",
                 "gesture": None,
                 "confidence": 0.0,
                 "sentence": None,
-                "audio": None
+                "audio": None,
+                "landmarks": None,
             }
 
-            if tracking_result and tracking_result.get("landmarks") and len(tracking_result["landmarks"]) > 0:
-                # Extract features from the first detected hand
-                hand_landmarks = tracking_result["landmarks"][0]
-                features = hand_tracker.extract_features(hand_landmarks)
+            if tracking_result:
+                response["landmarks"] = tracking_result
+
+                # Extract features from holistic tracker
+                features = tracker.extract_features(tracking_result)
 
                 if features:
                     # Predict gesture
@@ -175,11 +192,17 @@ async def websocket_endpoint(websocket: WebSocket):
                         state["last_activity"] = now
 
                         # Deduplicate: avoid adding same gesture repeatedly
-                        if not state["gesture_buffer"] or gesture != state["gesture_buffer"][-1]:
+                        if (
+                            not state["gesture_buffer"]
+                            or gesture != state["gesture_buffer"][-1]
+                        ):
                             state["gesture_buffer"].append(gesture)
 
                             # Limit buffer size
-                            if len(state["gesture_buffer"]) > state["max_gestures_per_sentence"]:
+                            if (
+                                len(state["gesture_buffer"])
+                                > state["max_gestures_per_sentence"]
+                            ):
                                 state["gesture_buffer"].pop(0)
 
                             state["last_gesture_time"] = now
@@ -188,13 +211,23 @@ async def websocket_endpoint(websocket: WebSocket):
                         should_generate = False
 
                         # Condition 1: Buffer reached max size
-                        if len(state["gesture_buffer"]) >= state["max_gestures_per_sentence"]:
+                        if (
+                            len(state["gesture_buffer"])
+                            >= state["max_gestures_per_sentence"]
+                        ):
                             should_generate = True
                         # Condition 2: Pause detected (enough time since last gesture)
-                        elif len(state["gesture_buffer"]) >= 3 and (now - state["last_gesture_time"]) > state["pause_threshold"]:
+                        elif (
+                            len(state["gesture_buffer"]) >= 3
+                            and (now - state["last_gesture_time"])
+                            > state["pause_threshold"]
+                        ):
                             should_generate = True
                         # Condition 3: Last gesture happened a while ago and we have at least one gesture
-                        elif now - state["last_activity"] > state["sentence_cooldown"] and len(state["gesture_buffer"]) >= 1:
+                        elif (
+                            now - state["last_activity"] > state["sentence_cooldown"]
+                            and len(state["gesture_buffer"]) >= 1
+                        ):
                             should_generate = True
                             state["last_activity"] = now  # Reset cooldown
 
@@ -205,14 +238,20 @@ async def websocket_endpoint(websocket: WebSocket):
                                 try:
                                     assert gemini_service is not None
                                     # Generate sentence immediately
-                                    sentence: str = gemini_service.translate_sign_to_text(state["gesture_buffer"])  # pyre-ignore
+                                    sentence: str = (
+                                        gemini_service.translate_sign_to_text(
+                                            state["gesture_buffer"]
+                                        )
+                                    )  # pyre-ignore
                                     if sentence:
                                         response["sentence"] = sentence
                                         state["current_sentence"] = sentence
 
                                         assert tts_service is not None
                                         # Generate audio
-                                        audio_b64: Optional[str] = tts_service.text_to_speech_base64(sentence)  # pyre-ignore
+                                        audio_b64: Optional[str] = (
+                                            tts_service.text_to_speech_base64(sentence)
+                                        )  # pyre-ignore
                                         if audio_b64:
                                             response["audio"] = audio_b64
                                             state["current_audio"] = audio_b64
@@ -227,10 +266,16 @@ async def websocket_endpoint(websocket: WebSocket):
 
     except WebSocketDisconnect:
         print("WebSocket disconnected")
-        hand_tracker.close()
+        tracker.close()
     except Exception as e:
         print(f"WebSocket error: {e}")
-        hand_tracker.close()
+        tracker.close()
+
 
 if __name__ == "__main__":
-    uvicorn.run(app, host=config.HOST, port=config.PORT, log_level="info" if not config.DEBUG else "debug")
+    uvicorn.run(
+        app,
+        host=config.HOST,
+        port=config.PORT,
+        log_level="info" if not config.DEBUG else "debug",
+    )

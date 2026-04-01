@@ -82,6 +82,7 @@ export default function Page() {
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [audioPlaying, setAudioPlaying] = useState(false);
+  const [landmarks, setLandmarks] = useState<any>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
 
   // WebSocket event handlers - must be defined before useWebSocketClient
@@ -102,6 +103,10 @@ export default function Page() {
   const handleWebSocketMessage = (message: WebSocketMessage) => {
     try {
       const data = message.data;
+
+      if (data.landmarks) {
+        setLandmarks(data.landmarks);
+      }
 
       if (data.status === 'received') {
         const gesture = data.gesture;
@@ -286,6 +291,7 @@ export default function Page() {
                     height={480}
                     onFrame={sendFrame}
                     enabled={connected && !processing}
+                    landmarks={landmarks}
                   />
                 </div>
 
@@ -351,6 +357,19 @@ export default function Page() {
                        <p className="text-slate-500 dark:text-slate-400 font-medium">Start signing to see translations</p>
                     </div>
                   )}
+                </div>
+
+                {/* Detection Status Indicators */}
+                <div className="flex items-center space-x-2 mt-2 mb-4">
+                  <span className={`text-xs px-2 py-0.5 rounded ${landmarks?.hands_detected > 0 ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-400'}`}>
+                    Hands: {landmarks?.hands_detected || 0}
+                  </span>
+                  <span className={`text-xs px-2 py-0.5 rounded ${landmarks?.face_detected ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-400'}`}>
+                    Face: {landmarks?.face_detected ? 'Yes' : 'No'}
+                  </span>
+                  <span className={`text-xs px-2 py-0.5 rounded ${landmarks?.pose_detected ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-400'}`}>
+                    Body: {landmarks?.pose_detected ? 'Yes' : 'No'}
+                  </span>
                 </div>
 
                 {/* History */}
