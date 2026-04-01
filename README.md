@@ -1,37 +1,40 @@
-# SignBridge AI 🎯
+# SignBridge AI
 
-Real-time sign language detection and translation system powered by MediaPipe, LSTM, and Gemini 2.5 Flash.
+Real-time sign language detection and translation system powered by MediaPipe Holistic, LSTM, and Gemini 2.5 Flash.
 
 ## Features
 
-- **Real-time Hand Tracking** - MediaPipe Hands for 21 landmark detection
-- **Gesture Recognition** - LSTM neural network for sequence-based sign language
-- **Smart Translation** - Gemini 2.5 Flash for natural sentence structuring
-- **Audio Output** - gTTS text-to-speech for translated text
-- **WebSockets** - Low-latency bidirectional communication
-- **Lightweight** - Optimized for low-spec machines (CPU-only ML)
+- **Hand + Face + Body Tracking** — MediaPipe Holistic for comprehensive landmark detection (21 hand points, 468 face points, 33 pose points)
+- **Gesture Recognition** — LSTM neural network for sequence-based sign language (97-feature input)
+- **Smart Translation** — Gemini 2.5 Flash for natural sentence structuring
+- **Audio Output** — gTTS text-to-speech for translated text
+- **WebSockets** — Low-latency bidirectional communication
+- **Live Landmark Overlay** — Visual feedback showing detected hands (green), face (blue), body (red)
+- **Secure** — Localhost-only binding, no network exposure, API keys in gitignored `.env.local`
+- **Lightweight** — Optimized for low-spec machines (CPU-only ML)
 
 ## Architecture
 
 ```
-┌─────────────┐     WebSocket      ┌─────────────┐
-│  Browser    │ ◄─────────────────► │  FastAPI    │
-│ (Next.js)   │   JSON frames       │  Backend    │
-│             │                     │             │
-│  Camera  ──►│   Landmarks       ├─────────────┤
-│  Capture    │                     │ Services:   │
-│             │                     │  • Hand Tracker (MediaPipe)
-│  ┌────────┐ │                     │  • LSTM Predictor (TensorFlow)
-│  │ WebSocket│                     │  • Gemini Service
-│  └────────┘ │                     │  • TTS Service
-└─────────────┘                     └─────────────┘
+┌───────────────┐     WebSocket      ┌───────────────┐
+│   Browser     │ ◄────────────────► │   FastAPI     │
+│  (Next.js)    │   JSON frames      │   Backend     │
+│               │                    │               │
+│  Camera ──►   │   Landmarks        ├───────────────┤
+│  Capture      │                    │  Services:    │
+│               │                    │  • Holistic Tracker (MediaPipe)
+│  ┌──────────┐ │                    │  • LSTM Predictor (TensorFlow)
+│  │ Canvas   │ │                    │  • Gemini Service
+│  │ Overlay  │ │                    │  • TTS Service
+│  └──────────┘ │                    └───────────────┘
+└───────────────┘
 ```
 
 ## Tech Stack
 
-- **Backend**: FastAPI, WebSockets, TensorFlow (CPU), MediaPipe, Google Gemini API, gTTS
-- **Frontend**: Next.js 15 (App Router), TypeScript, Tailwind CSS, WebSocket API
-- **ML Models**: LSTM (30-frame sequence buffer), MediaPipe Hands
+- **Backend**: Python 3.11+, FastAPI 0.115, WebSockets, TensorFlow (CPU), MediaPipe Holistic, Google Gemini API, gTTS
+- **Frontend**: Next.js 16 (App Router), TypeScript, Tailwind CSS 4, Framer Motion
+- **ML Models**: LSTM (30-frame sequence buffer, 97-feature input), MediaPipe Holistic
 
 ## Machine Requirements
 
@@ -70,7 +73,7 @@ cp .env.example .env.local
 
 # Run backend server
 python main.py
-# Server starts at http://localhost:8000
+# Server starts at http://127.0.0.1:8000
 ```
 
 ### 3. Frontend Setup
@@ -83,8 +86,6 @@ npm run dev
 ```
 
 ### 4. Data Collection (Optional)
-
-First, ensure the backend is running and you can access the camera:
 
 ```bash
 cd backend
@@ -107,43 +108,45 @@ The trained model will be saved to `backend/models/lstm_gesture_model.h5`.
 ```
 SignBridge/
 ├── backend/
-│   ├── main.py                  # FastAPI app & WebSocket endpoint
-│   ├── requirements.txt         # Python dependencies
-│   ├── .env.example             # Environment template
+│   ├── main.py                    # FastAPI app & WebSocket endpoint
+│   ├── config.py                  # Server configuration
+│   ├── requirements.txt           # Python dependencies
+│   ├── .env.example               # Environment template
 │   ├── services/
-│   │   ├── hand_tracker.py      # MediaPipe hand tracking
-│   │   ├── lstm_predictor.py    # LSTM gesture prediction
-│   │   ├── gemini_service.py    # Gemini API integration
-│   │   └── tts_service.py       # Text-to-speech
+│   │   ├── hand_tracker.py        # MediaPipe hand tracking
+│   │   ├── holistic_tracker.py    # MediaPipe holistic (hand+face+body)
+│   │   ├── lstm_predictor.py      # LSTM gesture prediction (97 features)
+│   │   ├── gemini_service.py      # Gemini API integration
+│   │   └── tts_service.py         # Text-to-speech
 │   ├── scripts/
-│   │   ├── collect_data.py      # Data collection utility
-│   │   ├── model.py             # LSTM model definition
-│   │   └── train.py             # Model training script
-│   ├── models/                  # Saved ML models (.h5)
-│   ├── data/                    # Training data (.npy files)
-│   └── tests/                   # Backend tests
+│   │   ├── collect_data.py        # Data collection utility
+│   │   ├── model.py               # LSTM model definition
+│   │   └── train.py               # Model training script
+│   ├── models/                    # Saved ML models (.h5)
+│   ├── data/                      # Training data (.npy files)
+│   └── debug_test.py              # Pipeline diagnostic tool
 ├── web-frontend/
 │   ├── src/
 │   │   ├── components/
-│   │   │   ├── CameraCapture.tsx    # WebRTC camera access
-│   │   │   └── WebSocketClient.tsx  # WebSocket connection
+│   │   │   ├── CameraCapture.tsx   # WebRTC camera + landmark overlay
+│   │   │   ├── WebSocketClient.tsx # WebSocket connection hook
+│   │   │   └── ThemeProvider.tsx   # Dark/light mode
 │   │   └── app/
-│   │       └── page.tsx        # Main UI
+│   │       ├── page.tsx            # Main UI with detection indicators
+│   │       └── layout.tsx          # Root layout
 │   ├── public/
 │   └── package.json
-├── TODO.md                      # Progress tracking
-└── MOBILE_INTEGRATION.md        # Flutter setup guide
+├── .env.example                   # Environment template (root)
+├── .gitignore                     # Git ignore rules
+├── AGENTS.md                      # Project instructions
+├── TODO.md                        # Progress tracker
+├── README.md                      # This file
+└── MOBILE_INTEGRATION.md          # Flutter setup guide
 ```
 
 ## API Reference
 
-### FastAPI Endpoints
-
-#### `GET /`
-Health check endpoint - returns HTML description
-
-#### `WS /ws/video`
-WebSocket endpoint for real-time video processing
+### WebSocket Endpoint: `WS /ws/video`
 
 **Request Format** (base64 encoded JPEG frames):
 ```json
@@ -157,10 +160,18 @@ WebSocket endpoint for real-time video processing
 ```json
 {
   "status": "received",
-  "gesture": "peace",
+  "gesture": "A",
   "confidence": 0.92,
   "sentence": "Hello!",
-  "audio": "base64_encoded_audio"
+  "audio": "base64_encoded_mp3",
+  "landmarks": {
+    "hands": [{"fingertips": [{"x": 0.5, "y": 0.3, "z": 0.01}], "hand_label": "Right"}],
+    "face": [{"x": 0.5, "y": 0.4, "z": 0.02}],
+    "pose": [{"x": 0.4, "y": 0.3, "z": 0.05}],
+    "hands_detected": 1,
+    "face_detected": true,
+    "pose_detected": true
+  }
 }
 ```
 
@@ -168,50 +179,38 @@ WebSocket endpoint for real-time video processing
 
 See `backend/.env.example` for full reference:
 
-- `GEMINI_API_KEY` - Google Gemini API key (required)
-- `SERVER_HOST` - Backend host (default: 0.0.0.0)
-- `SERVER_PORT` - Backend port (default: 8000)
-- `ALLOWED_ORIGINS` - CORS allowed origins (default: http://localhost:3000)
-- `TTS_LANGUAGE` - Text-to-speech language (default: en)
-- `DEBUG` - Debug mode (default: False)
+- `GEMINI_API_KEY` — Google Gemini API key (required for translation)
+- `SERVER_HOST` — Backend host (default: `127.0.0.1`, localhost only)
+- `SERVER_PORT` — Backend port (default: `8000`)
+- `ALLOWED_ORIGINS` — CORS allowed origins (default: `http://localhost:3000`)
+- `TTS_LANGUAGE` — Text-to-speech language (default: `en`)
+- `DEBUG` — Debug mode (default: `False`)
 
-## Supported Gestures (Default)
+## Security
 
-- thumbs_up, thumbs_down
-- peace, ok, fist, open_hand
-- point_up, point_down, point_left, point_right
-- rock_on, heart, clap, wave, call_me, stop, question, exclamation
-
-## Development Notes
-
-### Low-Spec Optimization
-
-- TensorFlow CPU-only build (no GPU required)
-- MediaPipe optimized for real-time performance on CPU
-- Frame rate limiting to reduce CPU usage
-- 30-frame sequence buffer for LSTM (≈ 1 second at 30fps)
-- Async WebSocket handling with FastAPI
-
-### Memory Management
-
-- Hand landmarks extracted to 63-element feature vector per frame
-- Sequence buffer cleared after each recognized gesture
-- MediaPipe resources released on shutdown
+- Backend and frontend bind to `127.0.0.1` (localhost only) — not exposed on network
+- API keys stored in `.env.local` (gitignored, never committed)
+- `.env.example` contains placeholder values only
+- No secrets in source code
 
 ## Troubleshooting
 
 ### Camera Permission Denied
-- Ensure HTTPS or localhost
-- Check browser permissions
-- Try `facingMode: 'user'` or `'environment'`
+- Ensure localhost (not IP address)
+- Check browser camera permissions
 
 ### WebSocket Connection Failed
 - Backend must be running on port 8000
-- Check CORS settings in `backend/main.py`
+- Ensure both servers bind to `127.0.0.1`
+
+### No Hands/Face Detected
+- Improve lighting conditions
+- Move closer to camera
+- Check backend terminal for `[HolisticTracker]` debug logs
 
 ### High CPU Usage
 - Reduce camera resolution in `CameraCapture.tsx`
-- Lower MediaPipe `min_detection_confidence`
+- Lower `min_detection_confidence` in holistic tracker
 - Reduce LSTM sequence length (currently 30)
 
 ## Future Enhancements
@@ -225,20 +224,13 @@ See `backend/.env.example` for full reference:
 
 ## License
 
-MIT License - see LICENSE file for details.
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make changes with clear commit messages
-4. Submit a pull request
+MIT License — see LICENSE file for details.
 
 ## Acknowledgements
 
-- [MediaPipe](https://mediapipe.dev/) - Hand tracking
-- [TensorFlow](https://www.tensorflow.org/) - LSTM model
-- [Google Gemini](https://ai.google.dev/) - Sentence structuring
-- [gTTS](https://pypi.org/project/gTTS/) - Text-to-speech
-- [FastAPI](https://fastapi.tiangolo.com/) - Backend framework
-- [Next.js](https://nextjs.org/) - Frontend framework
+- [MediaPipe](https://mediapipe.dev/) — Holistic tracking (hands, face, pose)
+- [TensorFlow](https://www.tensorflow.org/) — LSTM model
+- [Google Gemini](https://ai.google.dev/) — Sentence structuring
+- [gTTS](https://pypi.org/project/gTTS/) — Text-to-speech
+- [FastAPI](https://fastapi.tiangolo.com/) — Backend framework
+- [Next.js](https://nextjs.org/) — Frontend framework
