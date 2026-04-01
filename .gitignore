@@ -39,6 +39,7 @@ build/
 .idea/
 .agent/
 .claude/
+.kilo/
 
 # OS
 Thumbs.db
