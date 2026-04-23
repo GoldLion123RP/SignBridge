@@ -1,239 +1,118 @@
 # SignBridge AI
+> Bridging the Gap: Real-time Sign Language to Speech Translation with Spatial Awareness.
 
-Real-time sign language detection and translation system powered by MediaPipe Holistic, LSTM, and Gemini 2.5 Flash.
+![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)
+![Next.js](https://img.shields.io/badge/Frontend-Next.js-black?logo=next.js)
+![FastAPI](https://img.shields.io/badge/Backend-FastAPI-009688?logo=fastapi)
+![MediaPipe](https://img.shields.io/badge/ML-MediaPipe-0078d4?logo=google)
+![Status](https://img.shields.io/badge/Status-Live_Implementation-success)
 
-**Status**: Core implementation complete. Project is currently in the **Live Implementation** phase, focusing on high-quality data collection and real-world testing.
+## Overview
+SignBridge AI is a high-performance, real-time sign language translation system designed to convert hand gestures and body language into natural spoken English. Unlike simple gesture recognizers, SignBridge accounts for **3D spatial grammar** and the complex **SOV (Subject-Object-Verb) syntax** inherent in many sign languages. It leverages MediaPipe for landmark extraction and an LSTM neural network to interpret sequences of motion, which are then refined into natural sentences using Google's Gemini generative AI.
 
-## Features
-
-- **Premium Modular UI** — Clean, high-performance interface with dedicated components for analytics, translation, and video.
-- **Hand + Face + Body Tracking** — MediaPipe Holistic for comprehensive landmark detection (21 hand points, 468 face points, 33 pose points).
-- **Gesture Recognition** — Dual-engine prediction using LSTM neural networks (97-feature input) and heuristic fallbacks.
-- **Smart Translation** — Gemini 2.5 Flash for natural sentence structuring (SOV to Natural English).
-- **Audio Output** — gTTS text-to-speech for translated text.
-- **WebSockets** — Low-latency bidirectional communication for real-time feedback.
-- **Hardware Optimized** — Specifically tuned for low-spec machines (CPU-only ML, frame resizing, and performance toggles).
-- **Secure** — Localhost-only binding, no network exposure, API keys in gitignored `.env.local`.
+## Key Features
+- **Premium UI/UX**: A modern, modular interface built with Next.js 16 and Tailwind CSS 4, featuring real-time system analytics and high-fidelity video overlays.
+- **Hardware Optimization**: Specifically engineered for legacy hardware, including smooth operation on **Intel i5-4440 (4th Gen)** CPUs without requiring a dedicated GPU.
+- **Real-time Audio**: Low-latency text-to-speech (TTS) integration provides immediate verbal feedback for translated gestures.
+- **Bidirectional Communication**: High-speed WebSockets ensure seamless synchronization between the camera capture and the backend inference engine.
 
 ## Architecture
-
 ```
-┌───────────────┐     WebSocket      ┌───────────────┐
-│   Browser     │ ◄────────────────► │   FastAPI     │
-│  (Next.js)    │   JSON frames      │   Backend     │
-│               │                    │               │
-│  Camera ──►   │   Landmarks        ├───────────────┤
-│  Capture      │                    │  Services:    │
-│               │                    │  • Holistic Tracker (MediaPipe)
-│  ┌──────────┐ │                    │  • LSTM Predictor (TensorFlow)
-│  │ Canvas   │ │                    │  • Gemini Service
-│  │ Overlay  │ │                    │  • TTS Service
-│  └──────────┘ │                    └───────────────┘
-└───────────────┘
+┌─────────────────────────────────┐           WebSocket (JSON + Binary)           ┌─────────────────────────────────┐
+│         Client (Next.js)        │ <───────────────────────────────────────────> │         Backend (FastAPI)       │
+├─────────────────────────────────┤                                               ├─────────────────────────────────┤
+│                                 │           1. Camera Frames (B64)              │                                 │
+│   ┌─────────────────────────┐   │ ────────────────────────────────────────────> │   ┌─────────────────────────┐   │
+│   │     Camera Capture      │   │                                               │   │    MediaPipe Holistic   │   │
+│   └───────────┬─────────────┘   │                                               │   └────────────┬────────────┘   │
+│               │                 │           2. Landmarks & Predictions          │                │                │
+│   ┌───────────▼─────────────┐   │ <──────────────────────────────────────────── │   ┌────────────▼────────────┐   │
+│   │     Canvas Overlay      │   │                                               │   │      LSTM Predictor     │   │
+│   └───────────┬─────────────┘   │                                               │   └────────────┬────────────┘   │
+│               │                 │           3. Translated Audio (MP3)           │                │                │
+│   ┌───────────▼─────────────┐   │ <──────────────────────────────────────────── │   ┌────────────▼────────────┐   │
+│   │    Translation Panel    │   │                                               │   │     Gemini Service      │   │
+│   └─────────────────────────┘   │                                               │   └─────────────────────────┘   │
+│                                 │                                               │                                 │
+└─────────────────────────────────┘                                               └─────────────────────────────────┘
 ```
 
-## Tech Stack
+## Installation
 
-- **Backend**: Python 3.11+, FastAPI 0.115, WebSockets, TensorFlow (CPU), MediaPipe Holistic, Google Gemini API, gTTS
-- **Frontend**: Next.js 16 (App Router), TypeScript, Tailwind CSS 4, Framer Motion
-- **ML Models**: LSTM (30-frame sequence buffer, 97-feature input), MediaPipe Holistic
+### Backend Setup
+1. Navigate to the backend directory:
+   ```bash
+   cd backend
+   ```
+2. Create and activate a virtual environment:
+   ```bash
+   python -m venv venv
+   # Windows
+   .\venv\Scripts\activate
+   # Linux/Mac
+   source venv/bin/activate
+   ```
+3. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+4. Configure environment variables:
+   ```bash
+   cp .env.example .env.local
+   # Add your GEMINI_API_KEY to .env.local
+   ```
+5. Start the FastAPI server:
+   ```bash
+   python main.py
+   ```
 
-## Machine Requirements
+### Frontend Setup
+1. Navigate to the frontend directory:
+   ```bash
+   cd web-frontend
+   ```
+2. Install Node.js dependencies:
+   ```bash
+   npm install
+   ```
+3. Run the development server:
+   ```bash
+   npm run dev
+   ```
 
-SignBridge is highly optimized for performance on legacy hardware:
+## Usage
 
-- **CPU**: Intel i5-4440 (4th Gen) or equivalent.
-- **RAM**: 8GB minimum.
-- **GPU**: Not required (CPU-only inference enabled by default).
-- **OS**: Windows 10+, Linux, macOS.
-
-## Quick Start
-
-### 1. Clone & Setup
-
+### 1. Data Collection
+To train the system for new gestures, use the collection script:
 ```bash
-git clone <repository-url>
-cd SignBridge
+python backend/scripts/collect_data.py
 ```
+This utility captures sequences of landmarks and saves them as `.npy` files for training.
 
-### 2. Backend Setup
-
+### 2. Model Training
+Once data is collected, train the LSTM model:
 ```bash
-cd backend
-python -m venv venv
-
-# On Windows
-venv\Scripts\activate
-# On Linux/Mac
-source venv/bin/activate
-
-pip install -r requirements.txt
-
-# Copy environment template
-cp .env.example .env.local
-
-# Edit .env.local with your Gemini API key
-# GEMINI_API_KEY=your_key_here
-
-# Run backend server
-python main.py
-# Server starts at http://127.0.0.1:8000
+python backend/scripts/train.py
 ```
+The trained model (`.h5`) and label mapping will be automatically updated in the backend models directory.
 
-### 3. Frontend Setup
+### 3. Live Translation
+Run both the backend and frontend servers. Open your browser to `http://localhost:3000`. Ensure your camera is enabled and start signing. The system will detect gestures, structure them into sentences, and play the corresponding audio.
 
-```bash
-cd ../web-frontend
-npm install
-npm run dev
-# App runs at http://localhost:3000
-```
-
-### 4. Data Collection (Optional)
-
-```bash
-cd backend
-python scripts/collect_data.py
-```
-
-Follow on-screen instructions to collect samples for each gesture.
-
-### 5. Model Training (Optional)
-
-```bash
-cd backend
-python scripts/train.py
-```
-
-The trained model will be saved to `backend/models/lstm_gesture_model.h5`.
-
-## Project Structure
-
-```
-SignBridge/
-├── backend/
-│   ├── api/
-│   │   └── websocket.py           # WebSocket endpoint logic
-│   ├── core/
-│   │   └── ml_pipeline.py         # Standardized ML feature extraction
-│   ├── main.py                    # FastAPI app entry point
-│   ├── config.py                  # Server configuration
-│   ├── services/
-│   │   ├── hand_tracker.py        # MediaPipe hand tracking
-│   │   ├── holistic_tracker.py    # MediaPipe holistic (hand+face+body)
-│   │   ├── lstm_predictor.py      # LSTM gesture prediction (97 features)
-│   │   ├── heuristic_predictor.py # Rule-based fallback predictor
-│   │   ├── gemini_service.py      # Gemini API integration
-│   │   └── tts_service.py         # Text-to-speech
-│   ├── scripts/
-│   │   ├── collect_data.py        # Data collection utility
-│   │   ├── model.py               # LSTM model definition
-│   │   └── train.py               # Model training script
-│   ├── models/                    # Saved ML models (.h5)
-│   └── data/                      # Training data (.npy files)
-├── web-frontend/
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── Sidebar.tsx         # App navigation and controls
-│   │   │   ├── PremiumSidebar.tsx  # Enhanced sidebar with analytics
-│   │   │   ├── VideoView.tsx       # Primary video display area
-│   │   │   ├── LiveVideoContainer.tsx # Orchestrator for video + overlay
-│   │   │   ├── TranslationPanel.tsx # Real-time text display
-│   │   │   ├── SystemAnalytics.tsx # Hardware & FPS monitoring
-│   │   │   ├── CameraCapture.tsx   # WebRTC camera + landmark overlay
-│   │   │   └── WebSocketClient.tsx # WebSocket connection hook
-│   │   └── app/
-│   │       ├── page.tsx            # Main UI with detection indicators
-│   │       └── layout.tsx          # Root layout
-```
-
-## API Reference
-
-### WebSocket Endpoint: `WS /ws/video`
-
-**Request Format** (base64 encoded JPEG frames):
-```json
-{
-  "frame": "base64_encoded_image_data",
-  "timestamp": 1234567890
-}
-```
-
-**Response Format**:
-```json
-{
-  "status": "received",
-  "gesture": "A",
-  "confidence": 0.92,
-  "sentence": "Hello!",
-  "audio": "base64_encoded_mp3",
-  "landmarks": {
-    "hands": [{"fingertips": [{"x": 0.5, "y": 0.3, "z": 0.01}], "hand_label": "Right"}],
-    "face": [{"x": 0.5, "y": 0.4, "z": 0.02}],
-    "pose": [{"x": 0.4, "y": 0.3, "z": 0.05}],
-    "hands_detected": 1,
-    "face_detected": true,
-    "pose_detected": true
-  }
-}
-```
-
-## Environment Variables
-
-See `backend/.env.example` for full reference:
-
-- `GEMINI_API_KEY` — Google Gemini API key (required for translation)
-- `SERVER_HOST` — Backend host (default: `127.0.0.1`, localhost only)
-- `SERVER_PORT` — Backend port (default: `8000`)
-- `ALLOWED_ORIGINS` — CORS allowed origins (default: `http://localhost:3000`)
-- `TTS_LANGUAGE` — Text-to-speech language (default: `en`)
-- `DEBUG` — Debug mode (default: `False`)
+## Performance
+SignBridge AI implements several critical optimizations for low-end hardware (e.g., i5-4440):
+- **CPU-Only Inference**: All ML models are optimized for TensorFlow CPU execution, avoiding the overhead of specialized GPU drivers.
+- **Resolution Scaling**: Frames are dynamically resized to 640x480 before processing to reduce MediaPipe computational load.
+- **Sequence Buffering**: Uses a sliding window of 30 frames to provide stable predictions without re-processing the entire video stream.
+- **Asynchronous Processing**: Landmark extraction and translation services run in non-blocking threads to maintain high UI responsiveness.
 
 ## Security
+- **Localhost Binding**: By default, the backend binds to `127.0.0.1` to prevent unauthorized network access to your camera stream.
+- **Environment Protection**: All sensitive API keys and configurations are stored in `.env.local`, which is strictly excluded from version control via `.gitignore`.
+- **Stateless Frames**: No video data is permanently stored on the server; frames are processed in-memory and discarded immediately.
 
-- Backend and frontend bind to `127.0.0.1` (localhost only) — not exposed on network
-- API keys stored in `.env.local` (gitignored, never committed)
-- `.env.example` contains placeholder values only
-- No secrets in source code
-
-## Troubleshooting
-
-### Camera Permission Denied
-- Ensure localhost (not IP address)
-- Check browser camera permissions
-
-### WebSocket Connection Failed
-- Backend must be running on port 8000
-- Ensure both servers bind to `127.0.0.1`
-
-### No Hands/Face Detected
-- Improve lighting conditions
-- Move closer to camera
-- Check backend terminal for `[HolisticTracker]` debug logs
-
-### High CPU Usage
-- Reduce camera resolution in `CameraCapture.tsx`
-- Lower `min_detection_confidence` in holistic tracker
-- Reduce LSTM sequence length (currently 30)
-
-## Future Enhancements
-
-- [ ] Mobile app (Flutter)
-- [ ] More gesture categories (alphabet, numbers)
-- [ ] Customizable gesture training UI
-- [ ] Multi-language support
-- [ ] User profiles & gesture personalization
-- [ ] Offline mode (local LLM)
+## Contributing
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for our code of conduct and the process for submitting pull requests.
 
 ## License
-
-MIT License — see LICENSE file for details.
-
-## Acknowledgements
-
-- [MediaPipe](https://mediapipe.dev/) — Holistic tracking (hands, face, pose)
-- [TensorFlow](https://www.tensorflow.org/) — LSTM model
-- [Google Gemini](https://ai.google.dev/) — Sentence structuring
-- [gTTS](https://pypi.org/project/gTTS/) — Text-to-speech
-- [FastAPI](https://fastapi.tiangolo.com/) — Backend framework
-- [Next.js](https://nextjs.org/) — Frontend framework
+This project is licensed under the **Apache License 2.0**. See the [LICENSE](LICENSE) file for the full text.
