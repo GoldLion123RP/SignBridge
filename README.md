@@ -2,16 +2,18 @@
 
 Real-time sign language detection and translation system powered by MediaPipe Holistic, LSTM, and Gemini 2.5 Flash.
 
+**Status**: Core implementation complete. Project is currently in the **Live Implementation** phase, focusing on high-quality data collection and real-world testing.
+
 ## Features
 
-- **Hand + Face + Body Tracking** — MediaPipe Holistic for comprehensive landmark detection (21 hand points, 468 face points, 33 pose points)
-- **Gesture Recognition** — LSTM neural network for sequence-based sign language (97-feature input)
-- **Smart Translation** — Gemini 2.5 Flash for natural sentence structuring
-- **Audio Output** — gTTS text-to-speech for translated text
-- **WebSockets** — Low-latency bidirectional communication
-- **Live Landmark Overlay** — Visual feedback showing detected hands (green), face (blue), body (red)
-- **Secure** — Localhost-only binding, no network exposure, API keys in gitignored `.env.local`
-- **Lightweight** — Optimized for low-spec machines (CPU-only ML)
+- **Premium Modular UI** — Clean, high-performance interface with dedicated components for analytics, translation, and video.
+- **Hand + Face + Body Tracking** — MediaPipe Holistic for comprehensive landmark detection (21 hand points, 468 face points, 33 pose points).
+- **Gesture Recognition** — Dual-engine prediction using LSTM neural networks (97-feature input) and heuristic fallbacks.
+- **Smart Translation** — Gemini 2.5 Flash for natural sentence structuring (SOV to Natural English).
+- **Audio Output** — gTTS text-to-speech for translated text.
+- **WebSockets** — Low-latency bidirectional communication for real-time feedback.
+- **Hardware Optimized** — Specifically tuned for low-spec machines (CPU-only ML, frame resizing, and performance toggles).
+- **Secure** — Localhost-only binding, no network exposure, API keys in gitignored `.env.local`.
 
 ## Architecture
 
@@ -38,10 +40,12 @@ Real-time sign language detection and translation system powered by MediaPipe Ho
 
 ## Machine Requirements
 
-- **CPU**: Intel i5-4440 or equivalent
-- **RAM**: 8GB minimum
-- **GPU**: Not required (CPU-only inference)
-- **OS**: Windows 10+, Linux, macOS
+SignBridge is highly optimized for performance on legacy hardware:
+
+- **CPU**: Intel i5-4440 (4th Gen) or equivalent.
+- **RAM**: 8GB minimum.
+- **GPU**: Not required (CPU-only inference enabled by default).
+- **OS**: Windows 10+, Linux, macOS.
 
 ## Quick Start
 
@@ -108,14 +112,17 @@ The trained model will be saved to `backend/models/lstm_gesture_model.h5`.
 ```
 SignBridge/
 ├── backend/
-│   ├── main.py                    # FastAPI app & WebSocket endpoint
+│   ├── api/
+│   │   └── websocket.py           # WebSocket endpoint logic
+│   ├── core/
+│   │   └── ml_pipeline.py         # Standardized ML feature extraction
+│   ├── main.py                    # FastAPI app entry point
 │   ├── config.py                  # Server configuration
-│   ├── requirements.txt           # Python dependencies
-│   ├── .env.example               # Environment template
 │   ├── services/
 │   │   ├── hand_tracker.py        # MediaPipe hand tracking
 │   │   ├── holistic_tracker.py    # MediaPipe holistic (hand+face+body)
 │   │   ├── lstm_predictor.py      # LSTM gesture prediction (97 features)
+│   │   ├── heuristic_predictor.py # Rule-based fallback predictor
 │   │   ├── gemini_service.py      # Gemini API integration
 │   │   └── tts_service.py         # Text-to-speech
 │   ├── scripts/
@@ -123,25 +130,21 @@ SignBridge/
 │   │   ├── model.py               # LSTM model definition
 │   │   └── train.py               # Model training script
 │   ├── models/                    # Saved ML models (.h5)
-│   ├── data/                      # Training data (.npy files)
-│   └── debug_test.py              # Pipeline diagnostic tool
+│   └── data/                      # Training data (.npy files)
 ├── web-frontend/
 │   ├── src/
 │   │   ├── components/
+│   │   │   ├── Sidebar.tsx         # App navigation and controls
+│   │   │   ├── PremiumSidebar.tsx  # Enhanced sidebar with analytics
+│   │   │   ├── VideoView.tsx       # Primary video display area
+│   │   │   ├── LiveVideoContainer.tsx # Orchestrator for video + overlay
+│   │   │   ├── TranslationPanel.tsx # Real-time text display
+│   │   │   ├── SystemAnalytics.tsx # Hardware & FPS monitoring
 │   │   │   ├── CameraCapture.tsx   # WebRTC camera + landmark overlay
-│   │   │   ├── WebSocketClient.tsx # WebSocket connection hook
-│   │   │   └── ThemeProvider.tsx   # Dark/light mode
+│   │   │   └── WebSocketClient.tsx # WebSocket connection hook
 │   │   └── app/
 │   │       ├── page.tsx            # Main UI with detection indicators
 │   │       └── layout.tsx          # Root layout
-│   ├── public/
-│   └── package.json
-├── .env.example                   # Environment template (root)
-├── .gitignore                     # Git ignore rules
-├── AGENTS.md                      # Project instructions
-├── TODO.md                        # Progress tracker
-├── README.md                      # This file
-└── MOBILE_INTEGRATION.md          # Flutter setup guide
 ```
 
 ## API Reference

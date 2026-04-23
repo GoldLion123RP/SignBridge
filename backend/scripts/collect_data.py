@@ -6,7 +6,7 @@ import sys
 
 # Ensure Python can find the `services` module
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from services.hand_tracker import HandTracker  # pyre-ignore
+from services.holistic_tracker import HolisticTracker
 
 # Define the gestures we want to collect
 GESTURES = ["A", "B", "C", "Hello", "Thank_You"]
@@ -24,7 +24,7 @@ def main():
     print("This script will guide you through recording landmarks for ISL digits/letters.")
     print("Make sure your webcam is ready.")
     
-    tracker = HandTracker()
+    tracker = HolisticTracker()
     cap = cv2.VideoCapture(0)
     
     for gesture in GESTURES:
@@ -37,7 +37,7 @@ def main():
         time.sleep(1)
         print(f"RECORDING '{gesture}'! Please move your hand slightly for variation.")
         
-        frames_collected: int = 0
+        frames_collected = 0
         gesture_data = []
         
         while frames_collected < FRAMES_PER_GESTURE:
@@ -47,20 +47,29 @@ def main():
                 break
                 
             # Process using the exact same logic as your WebSocket backend
-            tracking_result = tracker.process_frame(frame)
+            res = tracker.process_frame(frame)
             
             # Extract features safely
-            if tracking_result and tracking_result.get("landmarks"):
-                 # Draw landmarks for user feedback
-                for hand_landmarks in tracking_result["landmarks"]:
-                    for lm in hand_landmarks:
-                        cv2.circle(frame, (lm['x'], lm['y']), 3, (0, 255, 0), -1)
-                        
-                # Extract features from the first hand
-                features = tracker.extract_features(tracking_result["landmarks"][0])
+            if res:
+                # Draw landmarks for user feedback
+                if res.get("hands"):
+                    for hand in res["hands"]:
+                        for lm in hand["landmarks"]:
+                            px = int(lm['x'] * frame.shape[1])
+                            py = int(lm['y'] * frame.shape[0])
+                            cv2.circle(frame, (px, py), 2, (0, 255, 0), -1)
+                
+                if res.get("face"):
+                     for lm in res["face"]:
+                        px = int(lm['x'] * frame.shape[1])
+                        py = int(lm['y'] * frame.shape[0])
+                        cv2.circle(frame, (px, py), 1, (255, 0, 0), -1)
+
+                # Extract features (97 features)
+                features = tracker.extract_features(res)
                 if features:
                     gesture_data.append(features)
-                    frames_collected += 1  # pyre-ignore
+                    frames_collected += 1
                     
             # UI Feedback
             cv2.putText(frame, f"Recording: {gesture}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)

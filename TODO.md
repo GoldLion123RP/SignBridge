@@ -1,58 +1,27 @@
-# 📋 SignBridge AI — Progress Tracker
+# SignBridge AI - Project Status
 
-> Auto-updated by Claude Code after each step completion
+## Infrastructure & Configuration (COMPLETED)
+- [x] Configure Agency agents and clean local duplicates.
+- [x] Fix YAML frontmatter in `ARCHITECTURE.md`.
+- [x] Analyze ISL documentation (Grammar: SOV, Questions/Negation at end).
+- [x] Unify Feature Extraction (Standardized 97-feature vector).
+- [x] Fix Environment: Protobuf 4.25.9 + TensorFlow 2.17.0.
 
+## Backend Implementation (COMPLETED)
+- [x] Synchronize `collect_data.py`, `model.py`, and `train.py` with 97 features.
+- [x] Train base LSTM model (`lstm_gesture_model.h5`) for ISL.
+- [x] Implement Performance Toggles (Disable Face/Pose for CPU saving).
+- [x] Implement frame resizing (320x240) in `main.py` for low-spec CPU.
 
-## Step 1: Project Initialization & Directory Setup
+## Frontend Refinement (COMPLETED)
+- [x] Refactor `page.tsx` into `Sidebar` and `VideoView` components.
+- [x] Optimize `CameraCapture.tsx` (Persistent canvas to avoid memory leaks).
+- [x] Add "Hand-Out-of-Frame" visual pulsing alerts.
+- [x] Implement `aria-live` for accessible translation feedback.
+- [x] Orchestrate Premium UI (LiveVideoContainer, PremiumSidebar, TranslationPanel, SystemAnalytics) ✅ 2025-05-22
 
-- ✅ 1.1 Create monorepo structure (backend/ + web-frontend/)
-- ✅ 1.2 Create backend/requirements.txt
-- ✅ 1.3 Initialize Next.js frontend with Tailwind CSS
-- ✅ 1.4 Verify both servers can start independently
-
-
-## Step 2: Phase 1 — Decoupled API & Web App Foundation
-
-- ✅ 2.1 FastAPI core main.py with WebSocket /ws/video endpoint
-- ✅ 2.2 MediaPipe hand tracking module (services/hand_tracker.py)
-- ✅ 2.3 Next.js camera capture + WebSocket client (WebSocketClient.tsx)
-- ✅ 2.4 End-to-end test: camera → WebSocket → landmarks → display
-
-
-## Step 3: Phase 2 — Data Collection & LSTM Model Training
-
-- ✅ 3.1 Data collection script (scripts/collect_data.py)
-- ✅ 3.2 LSTM model architecture (scripts/model.py)
-- ✅ 3.3 Training script with train/test split (scripts/train.py)
-- ✅ 3.4 Collect data for alphabets + 5-10 foundational words
-- ✅ 3.5 Train model and save as .h5
-
-
-## Step 4: Phase 3 — Integration & Gemini Enhancement
-
-- ✅ 4.1 Connect LSTM to FastAPI WebSocket (30-frame buffer)
-- ✅ 4.2 Gemini 2.5 Flash sentence structuring integration (gemini_service.py)
-- ✅ 4.3 gTTS text-to-speech with audio streaming to frontend (tts_service.py)
-- ✅ 4.4 Full pipeline test: gesture → prediction → sentence → speech
-
-
-## Step 5: Phase 4 — UI Polish & Android Prep
-
-- ✅ 5.1 Dark mode toggle with system preference detection
-- ✅ 5.2 Visual indicators (listening vs translating states)
-- ✅ 5.3 Transcript history panel
-- ✅ 5.4 Accessibility audit (ARIA labels, keyboard nav)
-- ✅ 5.5 MOBILE_INTEGRATION.md for Flutter
-
-
-## Step 6: Final Polish
-
-- ✅ 6.1 README.md with setup instructions
-- ✅ 6.2 Code review all major files
-- ✅ 6.3 Security audit (API keys, input validation)
-- ✅ 6.4 Performance test on low-spec machine
-
-
----
-
-Last updated: 2026-03-15
+## Next Steps: Live Implementation
+- [ ] Record high-quality training data for the full ISL alphabet.
+- [ ] Implement SOV to Natural English translation logic in `GeminiService`.
+- [ ] Add "Safe Zone" overlay to UI for better hand positioning.
+- [ ] Final performance profiling on Intel i5-4440.

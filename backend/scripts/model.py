@@ -8,7 +8,7 @@ from typing import List, Tuple, Optional
 import os
 
 class LSTMModel:
-    def __init__(self, sequence_length: int = 30, num_features: int = 63, num_gestures: int = 10):
+    def __init__(self, sequence_length: int = 30, num_features: int = 97, num_gestures: int = 10):
         self.sequence_length = sequence_length
         self.num_features = num_features
         self.num_gestures = num_gestures
@@ -20,7 +20,9 @@ class LSTMModel:
     def _create_model(self):
         """Create the LSTM model architecture."""
         self.model = Sequential([
-            LSTM(128, return_sequences=True, input_shape=(self.sequence_length, self.num_features)),
+            LSTM(64, return_sequences=True, input_shape=(self.sequence_length, self.num_features)),
+            Dropout(0.2),
+            LSTM(128, return_sequences=True),
             Dropout(0.2),
             LSTM(64, return_sequences=False),
             Dropout(0.2),
@@ -47,27 +49,10 @@ class LSTMModel:
     def save(self):
         """Save the model to disk."""
         if self.model:
+            # Ensure directory exists
+            os.makedirs(os.path.dirname(self.model_path), exist_ok=True)
             self.model.save(self.model_path)
             print(f"Model saved to {self.model_path}")
-
-    def prepare_sequences(self, X: np.ndarray, y: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-        """Prepare data sequences for training."""
-        if len(X) < self.sequence_length:
-            print(f"Not enough data: need at least {self.sequence_length} samples")
-            return np.array([]), np.array([])
-
-        # Pad sequences to ensure uniform length
-        X_padded = pad_sequences([X], maxlen=self.sequence_length, dtype='float32')[0]
-
-        # Create sequences with sliding window
-        sequences = []
-        labels = []
-
-        for i in range(len(X_padded) - self.sequence_length + 1):
-            sequences.append(X_padded[i:i + self.sequence_length])
-            labels.append(y)
-
-        return np.array(sequences), np.array(labels)
 
     def train(self, X: np.ndarray, y: np.ndarray, epochs: int = 10, batch_size: int = 32):
         """Train the model with prepared data."""
@@ -75,13 +60,16 @@ class LSTMModel:
             print(f"Not enough data for training: need at least {self.sequence_length} samples")
             return None
 
-        # Prepare sequences
+        # Prepare sequences (Sliding window)
         X_sequences = []
         y_sequences = []
 
         for i in range(len(X) - self.sequence_length + 1):
             X_sequences.append(X[i:i + self.sequence_length])
-            y_sequences.append(y[i + self.sequence_length - 1])  # Use last label in sequence
+            # Use the most common label in the sequence as the target
+            window_labels = y[i:i + self.sequence_length]
+            most_common_label = np.bincount(window_labels.astype(int)).argmax()
+            y_sequences.append(most_common_label)
 
         X_sequences = np.array(X_sequences)
         y_sequences = np.array(y_sequences)
@@ -89,9 +77,9 @@ class LSTMModel:
         # One-hot encode labels
         y_encoded = np.eye(self.num_gestures)[y_sequences]
 
-        print(f"Training with {{len(X_sequences)}} sequences")
-        print(f"Input shape: {{X_sequences.shape}}")
-        print(f"Output shape: {{y_encoded.shape}}")
+        print(f"Training with {len(X_sequences)} sequences")
+        print(f"Input shape: {X_sequences.shape}")
+        print(f"Output shape: {y_encoded.shape}")
 
         # Train model
         history = self.model.fit(
@@ -124,28 +112,6 @@ class LSTMModel:
             print(f"Prediction error: {e}")
             return None
 
-    def evaluate(self, X: np.ndarray, y: np.ndarray) -> Optional[dict]:
-        """Evaluate model on test data."""
-        if len(X) < self.sequence_length:
-            return None
-
-        # Prepare sequences
-        X_sequences = []
-        y_sequences = []
-
-        for i in range(len(X) - self.sequence_length + 1):
-            X_sequences.append(X[i:i + self.sequence_length])
-            y_sequences.append(y[i + self.sequence_length - 1])
-
-        X_sequences = np.array(X_sequences)
-        y_sequences = np.array(y_sequences)
-
-        # One-hot encode labels
-        y_encoded = np.eye(self.num_gestures)[y_sequences]
-
-        loss, accuracy = self.model.evaluate(X_sequences, y_encoded, verbose=0)
-        return {"loss": loss, "accuracy": accuracy}
-
     def get_summary(self) -> str:
         """Get model architecture summary."""
         if self.model:
@@ -159,29 +125,27 @@ class LSTMModel:
             return buffer.getvalue()
         return "No model available"
 
-    def predict_gesture(self, features: List[float]) -> Optional[Tuple[int, float]]:
-        """Predict gesture from extracted features."""
-        if len(features) < self.num_features:
-            return None
+class DataCollector:
+    def __init__(self, output_dir: str = "data"):
+        self.output_dir = output_dir
+        if not os.path.exists(self.output_dir):
+            os.makedirs(self.output_dir)
 
-        # Add features to buffer and maintain sequence length
-        try:
-            prediction = self.predict(np.array(features))
-            if prediction is not None:
-                gesture_idx = np.argmax(prediction)
-                confidence = prediction[gesture_idx]
-                return (gesture_idx, confidence)
-        except Exception as e:
-            print(f"Error in predict_gesture: {e}")
+    def load_all_data(self) -> Tuple[np.ndarray, np.ndarray]:
+        """Load all .npy data from the output directory."""
+        X = []
+        y = []
+        
+        gestures = [f.replace(".npy", "") for f in os.listdir(self.output_dir) if f.endswith(".npy")]
+        gesture_map = {g: i for i, g in enumerate(sorted(gestures))}
+        
+        for gesture in gestures:
+            path = os.path.join(self.output_dir, f"{gesture}.npy")
+            data = np.load(path)
+            X.extend(data)
+            y.extend([gesture_map[gesture]] * len(data))
+            
+        return np.array(X), np.array(y)
 
-        return None
-
-    def get_model_config(self) -> dict:
-        """Get model configuration for debugging."""
-        return {
-            "sequence_length": self.sequence_length,
-            "num_features": self.num_features,
-            "num_gestures": self.num_gestures,
-            "model_path": self.model_path,
-            "layer_count": len(self.model.layers) if self.model else 0
-        }
+    def close(self):
+        pass
