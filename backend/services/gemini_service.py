@@ -93,7 +93,7 @@ Please provide a grammatically correct sentence or phrase that represents what t
 
 User: {user_input}
 
-Assistant:"""
+SignBridge AI:"""
 
         try:
             response = self.client.models.generate_content(

@@ -1,4 +1,4 @@
-# SignBridge AI — Project Instructions for Claude Code
+# SignBridge AI — Project Instructions and Engineering Standards
 
 ## Project Overview
 SignBridge AI is a real-time sign language detection and translation system.
