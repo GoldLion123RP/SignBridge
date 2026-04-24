@@ -1,33 +1,35 @@
-# SignBridge AI
-> Bridging the Gap: Real-time Sign Language to Speech Translation with Spatial Awareness.
+# SignBridge AI v2.0
+> Bridging the Gap: Real-time Sign Language to Speech Translation with Neural Intelligence.
 
 ![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)
-![Next.js](https://img.shields.io/badge/Frontend-Next.js-black?logo=next.js)
+![Next.js](https://img.shields.io/badge/Frontend-Next.js_16-black?logo=next.js)
 ![FastAPI](https://img.shields.io/badge/Backend-FastAPI-009688?logo=fastapi)
-![MediaPipe](https://img.shields.io/badge/ML-MediaPipe-0078d4?logo=google)
-![Status](https://img.shields.io/badge/Status-Live_Implementation-success)
+![MediaPipe](https://img.shields.io/badge/ML-MediaPipe_Lite-0078d4?logo=google)
+![Status](https://img.shields.io/badge/Status-Pro_Implementation-success)
 
 ## Overview
-SignBridge AI is a high-performance, real-time sign language translation system designed to convert hand gestures and body language into natural spoken English. Unlike simple gesture recognizers, SignBridge accounts for **3D spatial grammar** and the complex **SOV (Subject-Object-Verb) syntax** inherent in many sign languages. It leverages MediaPipe for landmark extraction and an LSTM neural network to interpret sequences of motion, which are then refined into natural sentences using Google's Gemini generative AI.
+SignBridge AI v2.0 is a high-performance, real-time sign language translation system designed to convert hand gestures and body language into natural spoken English. Built for the modern web, v2.0 features a completely redesigned "Neural Link" interface, asynchronous processing for zero-latency feedback, and deep integration with Google's Gemini generative AI for grammatically correct translations.
 
 ## Key Features
-- **Premium UI/UX**: A modern, modular interface built with Next.js 16 and Tailwind CSS 4, featuring real-time system analytics and high-fidelity video overlays.
-- **Hardware Optimization**: Specifically engineered for legacy hardware, including smooth operation on **Intel i5-4440 (4th Gen)** CPUs without requiring a dedicated GPU.
-- **Real-time Audio**: Low-latency text-to-speech (TTS) integration provides immediate verbal feedback for translated gestures.
-- **Bidirectional Communication**: High-speed WebSockets ensure seamless synchronization between the camera capture and the backend inference engine.
+- **Premium v2.0 UI/UX**: A high-contrast, modern dark interface built with Next.js 16 and Tailwind CSS 4. Features glassmorphism, ambient glow effects, and a mobile-first responsive design.
+- **Asynchronous Neural Link**: Refactored backend using `asyncio` threading to decouple heavy ML processing from WebSocket I/O, enabling true 60 FPS real-time feedback even on older hardware.
+- **Full-Body Intelligence**: Optimized MediaPipe Holistic integration for face, body, and hand landmark extraction with mirrored canvas alignment.
+- **Integrated Lexicon**: Built-in library of supported ISL gestures with predictive hints for users.
+- **Archived Sessions**: Persistent session history with AI confidence tracking and timestamped translation logs.
+- **Real-time Audio**: Low-latency neural Text-to-Speech (TTS) integration provides immediate verbal feedback.
 
 ## Architecture
 ```
 ┌─────────────────────────────────┐           WebSocket (JSON + Binary)           ┌─────────────────────────────────┐
-│         Client (Next.js)        │ <───────────────────────────────────────────> │         Backend (FastAPI)       │
+│     Next.js 16 (Redesigned)     │ <───────────────────────────────────────────> │        FastAPI (Async)          │
 ├─────────────────────────────────┤                                               ├─────────────────────────────────┤
-│                                 │           1. Camera Frames (B64)              │                                 │
+│                                 │           1. Camera Frames (640x360)          │                                 │
 │   ┌─────────────────────────┐   │ ────────────────────────────────────────────> │   ┌─────────────────────────┐   │
-│   │     Camera Capture      │   │                                               │   │    MediaPipe Holistic   │   │
+│   │     Neural Link App     │   │                                               │   │    MediaPipe (Lite)     │   │
 │   └───────────┬─────────────┘   │                                               │   └────────────┬────────────┘   │
-│               │                 │           2. Landmarks & Predictions          │                │                │
+│               │                 │           2. Landmarks & Confidence           │                │                │
 │   ┌───────────▼─────────────┐   │ <──────────────────────────────────────────── │   ┌────────────▼────────────┐   │
-│   │     Canvas Overlay      │   │                                               │   │      LSTM Predictor     │   │
+│   │     Mirrored Overlay    │   │                                               │   │    Async LSTM Worker    │   │
 │   └───────────┬─────────────┘   │                                               │   └────────────┬────────────┘   │
 │               │                 │           3. Translated Audio (MP3)           │                │                │
 │   ┌───────────▼─────────────┐   │ <──────────────────────────────────────────── │   ┌────────────▼────────────┐   │
@@ -40,79 +42,28 @@ SignBridge AI is a high-performance, real-time sign language translation system 
 ## Installation
 
 ### Backend Setup
-1. Navigate to the backend directory:
-   ```bash
-   cd backend
-   ```
-2. Create and activate a virtual environment:
-   ```bash
-   python -m venv venv
-   # Windows
-   .\venv\Scripts\activate
-   # Linux/Mac
-   source venv/bin/activate
-   ```
-3. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-4. Configure environment variables:
-   ```bash
-   cp .env.example .env.local
-   # Add your GEMINI_API_KEY to .env.local
-   ```
-5. Start the FastAPI server:
-   ```bash
-   python main.py
-   ```
+1. Navigate to the backend directory: `cd backend`
+2. Activate your virtual environment: `.\venv\Scripts\activate` (Windows) or `source venv/bin/activate` (Linux/Mac)
+3. Install dependencies: `pip install -r requirements.txt`
+4. Configure `.env.local` with your `GEMINI_API_KEY`.
+5. Start the engine: `python main.py`
 
 ### Frontend Setup
-1. Navigate to the frontend directory:
-   ```bash
-   cd web-frontend
-   ```
-2. Install Node.js dependencies:
-   ```bash
-   npm install
-   ```
-3. Run the development server:
-   ```bash
-   npm run dev
-   ```
+1. Navigate to the frontend directory: `cd web-frontend`
+2. Install dependencies: `npm install`
+3. Run the pro interface: `npm run dev`
 
-## Usage
-
-### 1. Data Collection
-To train the system for new gestures, use the collection script:
-```bash
-python backend/scripts/collect_data.py
-```
-This utility captures sequences of landmarks and saves them as `.npy` files for training.
-
-### 2. Model Training
-Once data is collected, train the LSTM model:
-```bash
-python backend/scripts/train.py
-```
-The trained model (`.h5`) and label mapping will be automatically updated in the backend models directory.
-
-### 3. Live Translation
-Run both the backend and frontend servers. Open your browser to `http://localhost:3000`. Ensure your camera is enabled and start signing. The system will detect gestures, structure them into sentences, and play the corresponding audio.
-
-## Performance
-SignBridge AI implements several critical optimizations for low-end hardware (e.g., i5-4440):
-- **CPU-Only Inference**: All ML models are optimized for TensorFlow CPU execution, avoiding the overhead of specialized GPU drivers.
-- **Resolution Scaling**: Frames are dynamically resized to 640x480 before processing to reduce MediaPipe computational load.
-- **Sequence Buffering**: Uses a sliding window of 30 frames to provide stable predictions without re-processing the entire video stream.
-- **Asynchronous Processing**: Landmark extraction and translation services run in non-blocking threads to maintain high UI responsiveness.
+## Performance & Optimization
+SignBridge v2.0 is specifically engineered for legacy hardware (e.g., **Intel i5-4440**) and low-bandwidth environments:
+- **Threaded Inference**: Uses `asyncio.to_thread` to prevent compute-heavy models from blocking the network stack.
+- **Lite Model Complexity**: Defaults to MediaPipe `Complexity 0` for maximum FPS without sacrificing accuracy.
+- **Smart Frame Synchronization**: Frontend only sends new frames once the previous one is processed, eliminating buffer bloat and queue latency.
+- **Targeted Resizing**: Internal frame resizing to 320x180 (16:9) maintains high-speed throughput for neural analysis.
 
 ## Security
-- **Localhost Binding**: By default, the backend binds to `127.0.0.1` to prevent unauthorized network access to your camera stream.
-- **Environment Protection**: All sensitive API keys and configurations are stored in `.env.local`, which is strictly excluded from version control via `.gitignore`.
-- **Stateless Frames**: No video data is permanently stored on the server; frames are processed in-memory and discarded immediately.
-
-## Contributing
-We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for our code of conduct and the process for submitting pull requests.
+- **Neural Link Integrity**: WebSocket connections are restricted to authorized local interfaces by default.
+- **Environment Protection**: All sensitive API keys are isolated in `.env.local` and never committed to source control.
+- **Stateless Processing**: Video data remains in transient memory and is discarded immediately after landmark extraction.
 
 ## License
-This project is licensed under the **Apache License 2.0**. See the [LICENSE](LICENSE) file for the full text.
+Licensed under the **Apache License 2.0**.

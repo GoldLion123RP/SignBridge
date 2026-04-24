@@ -70,7 +70,8 @@ def train_model(
 
     # Save label mapping
     num_gestures = len(gestures)
-    label_mapping = save_label_mapping(gestures)
+    models_dir = os.path.dirname(output_model_path)
+    label_mapping = save_label_mapping(gestures, output_dir=models_dir)
 
     # Prepare data
     print("\n[2/4] Preparing training sequences...")

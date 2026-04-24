@@ -15,7 +15,7 @@ load_dotenv(env_path)
 
 class Config:
     # Server
-    HOST: str = os.getenv("SERVER_HOST", "127.0.0.1")
+    HOST: str = os.getenv("SERVER_HOST", "0.0.0.0")
     PORT: int = int(os.getenv("SERVER_PORT", 8000))
 
     # API Keys

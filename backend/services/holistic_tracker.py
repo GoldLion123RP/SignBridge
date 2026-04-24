@@ -18,7 +18,7 @@ FACE_KEY_POINTS: List[int] = sorted([
 ])
 
 class HolisticTracker:
-    def __init__(self, min_detection_confidence: float = 0.2, min_tracking_confidence: float = 0.2):
+    def __init__(self, min_detection_confidence: float = 0.5, min_tracking_confidence: float = 0.5):
         # Optimization: Only initialize Holistic if face or pose is needed
         self.use_holistic = config.ENABLE_FACE_TRACKING or config.ENABLE_POSE_TRACKING
         
@@ -31,15 +31,15 @@ class HolisticTracker:
                 model_complexity=0,
                 min_detection_confidence=min_detection_confidence,
                 min_tracking_confidence=min_tracking_confidence,
+                smooth_landmarks=True
             )
         
-        # Fallback Engine: Dedicated Hands (Much more accurate for hand-only detection)
-        # Always init hands for fallback or if holistic is disabled
+        # Fallback Engine: Dedicated Hands
         self.mp_hands = mp.solutions.hands
         self.hands_fallback = self.mp_hands.Hands(
             static_image_mode=False,
             max_num_hands=2,
-            model_complexity=1,
+            model_complexity=0, # Changed from 1 to 0 for speed
             min_detection_confidence=min_detection_confidence,
             min_tracking_confidence=min_tracking_confidence,
         )

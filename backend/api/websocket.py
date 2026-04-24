@@ -4,6 +4,7 @@ import base64
 import cv2
 import numpy as np
 import time
+import asyncio
 from collections import deque, Counter
 from core.ml_pipeline import SignLanguagePipeline
 from services.heuristic_predictor import HeuristicPredictor
@@ -41,6 +42,9 @@ async def websocket_endpoint(websocket: WebSocket):
                 print(f"[WS] Service init error: {e}")
         return gemini, tts
 
+    async def process_frame_async(frame, pl):
+        return await asyncio.to_thread(pl.tracker.process_frame, frame)
+
     # Buffers and state
     sentence_buffer = []
     last_trigger_time = 0
@@ -50,7 +54,7 @@ async def websocket_endpoint(websocket: WebSocket):
     # Latency-based frame skipping for i5-4440
     last_processing_duration = 0
     frame_count = 0
-    LATENCY_THRESHOLD = 0.08  # 80ms
+    LATENCY_THRESHOLD = 0.016  # 16ms (60 FPS)
 
     try:
         while True:
@@ -69,8 +73,8 @@ async def websocket_endpoint(websocket: WebSocket):
                     if frame is None:
                         raise ValueError("CV2 Decode failed")
                     
-                    # 400x300 for i5-4440 optimization
-                    frame = cv2.resize(frame, (400, 300))
+                    # 320x180 for i5-4440 optimization (Preserves 16:9)
+                    frame = cv2.resize(frame, (320, 180))
                 except Exception as e:
                     print(f"[WS] Decode error: {e}")
                     continue
@@ -87,9 +91,9 @@ async def websocket_endpoint(websocket: WebSocket):
 
                 start_time = time.time()
                 
-                # Process through ML Pipeline
+                # Process through ML Pipeline in a thread
                 pl = get_pipeline()
-                res = pl.tracker.process_frame(frame)
+                res = await process_frame_async(frame, pl)
                 
                 response = {
                     "status": "received",
@@ -134,8 +138,10 @@ async def websocket_endpoint(websocket: WebSocket):
                             
                             last_trigger_time = time.time()
 
-                    # Translation logic
-                    if len(sentence_buffer) >= 3 and (time.time() - last_trigger_time) > 2.5:
+                # Translation logic (Moved outside hands-detected block)
+                if sentence_buffer:
+                    time_since_last = time.time() - last_trigger_time
+                    if len(sentence_buffer) >= 3 or (time_since_last > 3.0 and len(sentence_buffer) > 0):
                         g_service, t_service = get_services()
                         if g_service and t_service:
                             try:

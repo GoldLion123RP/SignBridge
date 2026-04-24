@@ -13,7 +13,8 @@ GESTURES = ["A", "B", "C", "Hello", "Thank_You"]
 
 # Settings
 FRAMES_PER_GESTURE = 100
-DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DATA_DIR = os.path.join(base_path, "data")
 
 def main():
     if not os.path.exists(DATA_DIR):

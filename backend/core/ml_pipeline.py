@@ -5,7 +5,7 @@ from services.holistic_tracker import HolisticTracker
 from services.lstm_predictor import LSTMGesturePredictor
 from config import config
 
-# Strictly limit TensorFlow resources for 512MB RAM environment
+# Strictly limit TensorFlow resources for stability on local machine
 tf.config.threading.set_intra_op_parallelism_threads(1)
 tf.config.threading.set_inter_op_parallelism_threads(1)
 
