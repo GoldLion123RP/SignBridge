@@ -48,13 +48,13 @@ async def websocket_endpoint(websocket: WebSocket):
     # Buffers and state
     sentence_buffer = []
     last_trigger_time = 0
-    smoothing_buffer = deque(maxlen=10)
-    GESTURE_COOLDOWN = 1.5
+    smoothing_buffer = deque(maxlen=8) # Faster response
+    GESTURE_COOLDOWN = 1.2
     
     # Latency-based frame skipping for i5-4440
     last_processing_duration = 0
     frame_count = 0
-    LATENCY_THRESHOLD = 0.016  # 16ms (60 FPS)
+    LATENCY_THRESHOLD = 0.033  # 30ms
 
     try:
         while True:
@@ -84,7 +84,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 if last_processing_duration > LATENCY_THRESHOLD and frame_count % 2 == 0:
                     await websocket.send_json({
                         "status": "skipped", 
-                        "latency": f"{last_processing_duration * 1000:.0f}",
+                        "latency": int(last_processing_duration * 1000),
                         "timestamp": msg_data.get("timestamp", 0)
                     })
                     continue
@@ -109,39 +109,46 @@ async def websocket_endpoint(websocket: WebSocket):
                 if res and res.get("hands_detected", 0) > 0:
                     feats = pl.tracker.extract_features(res)
                     
-                    # 1. Try Heuristic (Zero-RAM footprint)
+                    # ALWAYS update LSTM buffer to maintain continuity
+                    lstm_pred = pl.predictor.predict(feats)
+                    
+                    # 1. Try Heuristic FIRST (High confidence static gestures)
                     raw_pred = heuristic_predictor.predict(res)
                     
-                    # 2. Fallback to LSTM
+                    # 2. Fallback to LSTM only if heuristic is silent
                     if not raw_pred:
-                        raw_pred = pl.predictor.predict(feats)
+                        raw_pred = lstm_pred
                     
                     # Smoothing logic
                     current_gesture = raw_pred[0] if raw_pred else None
+                    recognized_conf = float(raw_pred[1]) if raw_pred else 0.0
+                    
                     smoothing_buffer.append(current_gesture)
+                    
+                    # Feedback on current detection for analytics ring
+                    response["confidence"] = recognized_conf
                     
                     counts = Counter(smoothing_buffer)
                     most_common_gesture, count = counts.most_common(1)[0] if counts else (None, 0)
                     
-                    if most_common_gesture and count >= 6:
-                        recognized_gesture = most_common_gesture
-                        recognized_conf = float(raw_pred[1]) if raw_pred and raw_pred[0] == most_common_gesture else 0.9
-                        
+                    # Decision threshold: 5 out of 8 frames must match
+                    if most_common_gesture and count >= 5:
                         if time.time() - last_trigger_time > GESTURE_COOLDOWN:
-                            response["gesture"] = recognized_gesture
-                            response["confidence"] = recognized_conf
+                            response["gesture"] = most_common_gesture
+                            print(f"[DETECT] {most_common_gesture} ({recognized_conf:.2f})")
                             
-                            print(f"[DETECT] {recognized_gesture} ({recognized_conf:.2f})")
-                            
-                            if not sentence_buffer or sentence_buffer[-1] != recognized_gesture:
-                                sentence_buffer.append(recognized_gesture)
+                            if not sentence_buffer or sentence_buffer[-1] != most_common_gesture:
+                                sentence_buffer.append(most_common_gesture)
                             
                             last_trigger_time = time.time()
+                else:
+                    # Clear smoothing if no hands
+                    smoothing_buffer.append(None)
 
-                # Translation logic (Moved outside hands-detected block)
+                # Translation logic
                 if sentence_buffer:
                     time_since_last = time.time() - last_trigger_time
-                    if len(sentence_buffer) >= 3 or (time_since_last > 3.0 and len(sentence_buffer) > 0):
+                    if len(sentence_buffer) >= 3 or (time_since_last > 2.5 and len(sentence_buffer) > 0):
                         g_service, t_service = get_services()
                         if g_service and t_service:
                             try:

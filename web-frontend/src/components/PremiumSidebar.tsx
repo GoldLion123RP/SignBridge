@@ -1,5 +1,5 @@
 import React from 'react';
-import { Video, History, GraduationCap, Settings, LogOut, Camera, CameraOff, Sparkles, ChevronRight, User } from 'lucide-react';
+import { Video, History, GraduationCap, Settings, ChevronRight } from 'lucide-react';
 
 interface Props {
   user: { name: string, plan: string };
@@ -10,7 +10,12 @@ interface Props {
   onCameraToggle: () => void;
 }
 
-export const PremiumSidebar = ({ user, connected, cameraEnabled, activeTab, onTabChange, onCameraToggle }: Props) => {
+export const PremiumSidebar = ({ activeTab, onTabChange }: Props) => {
+  const handleHomeClick = () => {
+    onTabChange('translate');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   return (
     <aside className="w-full h-full md:w-72 bg-black/40 backdrop-blur-3xl border-r border-white/5 flex flex-col relative overflow-hidden">
       
@@ -18,8 +23,11 @@ export const PremiumSidebar = ({ user, connected, cameraEnabled, activeTab, onTa
       <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[#00FF66]/20 to-transparent" />
 
       <div className="flex flex-col p-8 h-full">
-        {/* Brand Section */}
-        <div className="mb-12 flex items-center gap-4 group cursor-pointer">
+        {/* Brand Section - Functional Logo */}
+        <button 
+          onClick={handleHomeClick}
+          className="mb-12 flex items-center gap-4 group cursor-pointer text-left outline-none"
+        >
           <div className="w-14 h-14 bg-white/5 rounded-[20px] flex items-center justify-center border border-white/10 shadow-2xl group-hover:border-[#00FF66]/40 transition-all duration-500 overflow-hidden relative">
             <div className="absolute inset-0 bg-[#00FF66]/5 opacity-0 group-hover:opacity-100 transition-opacity" />
             <img src="/logo.png" alt="Logo" className="w-8 h-8 object-contain relative z-10 group-hover:scale-110 transition-transform duration-500" />
@@ -28,7 +36,7 @@ export const PremiumSidebar = ({ user, connected, cameraEnabled, activeTab, onTa
             <h1 className="text-white font-black text-xl tracking-tighter uppercase leading-none">SignBridge</h1>
             <p className="text-[10px] font-black text-[#00FF66] uppercase tracking-[0.3em] mt-1.5 opacity-80">AI PRO ENGINE</p>
           </div>
-        </div>
+        </button>
 
         {/* Navigation Section */}
         <nav className="flex-1 space-y-3">
@@ -41,21 +49,6 @@ export const PremiumSidebar = ({ user, connected, cameraEnabled, activeTab, onTa
             onClick={() => onTabChange('translate')} 
           />
           
-          <button 
-            onClick={onCameraToggle}
-            className={`w-full flex items-center justify-between gap-3 px-5 py-4 rounded-2xl text-[13px] font-bold transition-all duration-500 border ${
-              cameraEnabled 
-                ? 'bg-[#00FF66]/5 text-[#00FF66] border-[#00FF66]/20 hover:bg-[#00FF66]/10' 
-                : 'bg-red-500/5 text-red-500 border-red-500/20 hover:bg-red-500/10'
-            }`}
-          >
-            <div className="flex items-center gap-3">
-               {cameraEnabled ? <Camera size={18} /> : <CameraOff size={18} />}
-               <span>Hardware {cameraEnabled ? 'Online' : 'Offline'}</span>
-            </div>
-            <div className={`w-2 h-2 rounded-full ${cameraEnabled ? 'bg-[#00FF66] shadow-[0_0_8px_rgba(0,255,102,0.4)]' : 'bg-red-500'}`} />
-          </button>
-
           <div className="h-4" />
           <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em] mb-4 ml-4">Resources</p>
 
@@ -79,30 +72,9 @@ export const PremiumSidebar = ({ user, connected, cameraEnabled, activeTab, onTa
           />
         </nav>
 
-        {/* Premium Upgrade Card */}
-        <div className="mt-8 mb-8 p-6 bg-gradient-to-br from-[#00FF66]/10 to-transparent rounded-[32px] border border-[#00FF66]/10 relative overflow-hidden group cursor-pointer">
-           <div className="absolute -top-4 -right-4 w-20 h-20 bg-[#00FF66]/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700" />
-           <Sparkles size={20} className="text-[#00FF66] mb-3" />
-           <p className="text-white font-bold text-sm mb-1">Upgrade to Enterprise</p>
-           <p className="text-white/40 text-[10px] leading-relaxed">Unlimited history and deep neural translation features.</p>
-        </div>
-
-        {/* User Section */}
-        <div className="mt-auto pt-8 border-t border-white/5 flex items-center gap-4">
-          <div className="relative group">
-            <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-[#00FF66] font-black border border-white/10 group-hover:border-[#00FF66]/40 transition-all duration-500 overflow-hidden">
-               {user.name.split(' ').map(n => n[0]).join('')}
-               <div className="absolute inset-0 bg-gradient-to-tr from-[#00FF66]/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-            </div>
-            <div className={`absolute -bottom-1 -right-1 w-4 h-4 border-[3px] border-[#0A0A0A] rounded-full ${connected ? 'bg-[#00FF66]' : 'bg-red-500'}`} />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-black text-white truncate tracking-tight">{user.name}</p>
-            <p className="text-[10px] text-white/30 font-bold uppercase tracking-widest">{user.plan}</p>
-          </div>
-          <button className="p-3 hover:bg-red-500/10 text-white/20 hover:text-red-500 rounded-xl transition-all border border-transparent hover:border-red-500/20">
-            <LogOut size={18} />
-          </button>
+        {/* Bottom spacer for balance */}
+        <div className="mt-auto opacity-10 text-center">
+           <p className="text-[8px] font-black text-white uppercase tracking-[0.5em]">Neural Unit Active</p>
         </div>
       </div>
     </aside>

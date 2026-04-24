@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef, memo } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useWebSocket } from '@/components/WebSocketClient';
 import { PremiumSidebar } from '@/components/PremiumSidebar';
 import { LiveVideoContainer } from '@/components/LiveVideoContainer';
@@ -10,9 +10,15 @@ import { Wifi, WifiOff, Globe, BookOpen, Settings as SettingsIcon, History as Hi
 
 // --- Sub-components for modern look ---
 
-const ViewHeader = ({ title, connected }: { title: string, connected: boolean }) => (
+const ViewHeader = ({ title, connected, onMenuClick }: { title: string, connected: boolean, onMenuClick: () => void }) => (
   <header className="flex flex-col md:flex-row justify-between items-start md:items-center px-4 md:px-8 py-6 border-b border-white/5 bg-black/20 backdrop-blur-2xl sticky top-0 z-40 transition-all">
     <div className="flex items-center gap-4 mb-4 md:mb-0">
+      <button 
+        onClick={onMenuClick}
+        className="p-2 bg-white/5 rounded-lg border border-white/5 hover:bg-white/10 transition-colors mr-2"
+      >
+        <Menu size={20} className="text-[#00FF66]" />
+      </button>
       <div className={`w-2.5 h-2.5 rounded-full ${connected ? 'bg-[#00FF66] shadow-[0_0_12px_rgba(0,255,102,0.4)] animate-pulse' : 'bg-red-500 shadow-[0_0_12px_rgba(239,68,68,0.4)]'}`} />
       <div className="flex flex-col">
         <h2 className="text-white font-bold text-lg tracking-tight flex items-center gap-2 uppercase tracking-widest text-[11px] opacity-60">
@@ -49,7 +55,7 @@ export default function Home() {
   const [landmarks, setLandmarks] = useState<any>(null);
   const [latency, setLatency] = useState(0);
   const [cameraEnabled, setCameraEnabled] = useState(true);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true); // Default to open on desktop
   const [user] = useState({ name: 'Rahul Pal', plan: 'Pro Plan' });
   
   const processingRef = useRef(false);
@@ -87,8 +93,8 @@ export default function Home() {
     }
   }, []);
 
-  // Ensure WebSocket uses 127.0.0.1 explicitly to avoid DNS overhead
-  const { connected, sendMessage, error: wsError } = useWebSocket("ws://127.0.0.1:8000/ws/video", onMessage);
+  const wsUrl = process.env.NEXT_PUBLIC_WS_URL || "ws://127.0.0.1:8000/ws/video";
+  const { connected, sendMessage } = useWebSocket(wsUrl, onMessage);
 
   const handleFrame = useCallback((frame: ImageData) => {
     if (connected && cameraEnabled && !processingRef.current) {
@@ -114,33 +120,29 @@ export default function Home() {
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-[#0A0A0A] font-inter text-white selection:bg-[#00FF66]/30 overflow-hidden">
       
-      {/* --- Responsive Mobile Header --- */}
-      <div className="md:hidden flex justify-between items-center p-4 border-b border-white/5 bg-black/40 backdrop-blur-xl z-50">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-white/10 rounded-lg flex items-center justify-center border border-white/5">
-            <img src="/logo.png" alt="Logo" className="w-5 h-5 object-contain" />
-          </div>
-          <h1 className="font-black text-sm tracking-tighter uppercase">SignBridge</h1>
-        </div>
-        <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 bg-white/5 rounded-lg border border-white/5">
-          {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
-        </button>
-      </div>
-
-      {/* --- Sidebar Navigation --- */}
-      <div className={`fixed inset-0 z-40 md:relative md:flex transition-all duration-500 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
-        <div className="absolute inset-0 bg-black/60 backdrop-blur-md md:hidden" onClick={() => setIsSidebarOpen(false)} />
-        <PremiumSidebar 
-          user={user} 
-          connected={connected} 
-          cameraEnabled={cameraEnabled} 
-          activeTab={activeTab}
-          onTabChange={(tab) => {
-            setActiveTab(tab);
-            setIsSidebarOpen(false);
-          }}
-          onCameraToggle={() => setCameraEnabled(!cameraEnabled)} 
+      {/* --- Responsive Sidebar --- */}
+      <div 
+        className={`fixed inset-y-0 left-0 z-50 md:relative transition-all duration-500 ease-in-out ${
+          isSidebarOpen ? 'w-72 translate-x-0' : 'w-0 -translate-x-full md:translate-x-0 md:w-0'
+        }`}
+      >
+        <div 
+          className={`absolute inset-0 bg-black/60 backdrop-blur-md md:hidden ${isSidebarOpen ? 'block' : 'hidden'}`} 
+          onClick={() => setIsSidebarOpen(false)} 
         />
+        <div className="h-full overflow-hidden">
+           <PremiumSidebar 
+            user={user} 
+            connected={connected} 
+            cameraEnabled={cameraEnabled} 
+            activeTab={activeTab}
+            onTabChange={(tab) => {
+              setActiveTab(tab);
+              if (window.innerWidth < 768) setIsSidebarOpen(false);
+            }}
+            onCameraToggle={() => setCameraEnabled(!cameraEnabled)} 
+          />
+        </div>
       </div>
 
       {/* --- Main Content Area --- */}
@@ -153,6 +155,7 @@ export default function Home() {
         <ViewHeader 
           title={activeTab === 'translate' ? 'Real-time Translation' : activeTab} 
           connected={connected} 
+          onMenuClick={() => setIsSidebarOpen(!isSidebarOpen)}
         />
 
         {/* Dashboard Content Container */}
@@ -162,10 +165,12 @@ export default function Home() {
             <div className="flex flex-col xl:flex-row gap-6 md:gap-8 max-w-[1800px] mx-auto w-full animate-in fade-in slide-in-from-bottom-4 duration-700">
               
               {/* Left Column: Video Viewport */}
-              <div className="w-full xl:w-[65%] flex flex-col gap-6">
+              <div className="flex-1 flex flex-col gap-6">
                 <LiveVideoContainer 
                   onFrame={handleFrame} 
-                  connected={connected && cameraEnabled} 
+                  connected={connected} 
+                  cameraEnabled={cameraEnabled}
+                  onCameraToggle={() => setCameraEnabled(!cameraEnabled)}
                   landmarks={landmarks} 
                   prediction={prediction}
                 />
@@ -183,7 +188,7 @@ export default function Home() {
               </div>
 
               {/* Right Column: Output & Intelligence */}
-              <div className="w-full xl:w-[35%] flex flex-col gap-6 md:gap-8">
+              <div className="w-full xl:w-[350px] 2xl:w-[450px] flex flex-col gap-6 md:gap-8">
                 <TranslationPanel prediction={prediction} />
                 <SystemAnalytics prediction={prediction} latency={latency} />
               </div>

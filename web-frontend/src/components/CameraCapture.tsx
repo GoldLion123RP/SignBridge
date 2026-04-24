@@ -204,8 +204,8 @@ const CameraCapture: React.FC<Props> = ({ onFrame, landmarks, prediction, enable
   }, [landmarks]);
 
   return (
-    <div className="relative w-full h-full bg-gray-900 overflow-hidden rounded-2xl shadow-2xl border-4 border-gray-800">
-      <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover mirror" />
+    <div className="relative w-full h-full bg-[#050505] overflow-hidden rounded-[32px] border border-white/5 flex items-center justify-center">
+      <video ref={videoRef} autoPlay playsInline muted className="max-w-full max-h-full object-contain mirror" />
       <canvas ref={overlayRef} className="absolute top-0 left-0 w-full h-full pointer-events-none mirror" />
       
       {/* Floating Words Overlay */}
