@@ -1,25 +1,25 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 interface Props {
-  onFrame: (frame: ImageData) => void;
+  onFrame: (frame: string) => void;
   landmarks: any;
   prediction: any;
   enabled: boolean;
+  connected: boolean;
 }
 
-const CameraCapture: React.FC<Props> = ({ onFrame, landmarks, prediction, enabled }) => {
+const CameraCapture: React.FC<Props> = ({ onFrame, landmarks, prediction, enabled, connected }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const captureCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const lastFrameTime = useRef<number>(0);
+  const processingRef = useRef<boolean>(false);
+  const lastCaptureTime = useRef<number>(0);
 
-  // 1. Optimized Camera Setup
+  // 1. Optimized Camera Setup (720p source for quality overlay, but processed at low res)
   useEffect(() => {
     let active = true;
     const startCamera = async () => {
-      // Release any existing stream first
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(t => t.stop());
         streamRef.current = null;
@@ -31,8 +31,7 @@ const CameraCapture: React.FC<Props> = ({ onFrame, landmarks, prediction, enable
             video: { 
               width: { ideal: 1280 }, 
               height: { ideal: 720 }, 
-              aspectRatio: 1.777777778,
-              frameRate: { ideal: 60, min: 20 } 
+              frameRate: { ideal: 30 } 
             }, 
             audio: false 
           };
@@ -46,10 +45,7 @@ const CameraCapture: React.FC<Props> = ({ onFrame, landmarks, prediction, enable
           streamRef.current = s;
           if (videoRef.current) videoRef.current.srcObject = s;
         } catch (e: any) {
-          console.error('[Camera] Error:', e.name, e.message);
-          if (e.name === 'NotReadableError') {
-            alert("Camera is locked by another app or tab. Please close other apps using the camera and refresh.");
-          }
+          console.error('[Camera] Error:', e);
         }
       }
     };
@@ -64,7 +60,8 @@ const CameraCapture: React.FC<Props> = ({ onFrame, landmarks, prediction, enable
       }
     };
   }, [enabled]);
-  // 2. High-Speed Frame Processing (60 FPS target)
+
+  // 2. High-Speed Frame Processing with Throttling (20 FPS target)
   useEffect(() => {
     let frameId: number;
     const process = (time: number) => {
@@ -75,29 +72,39 @@ const CameraCapture: React.FC<Props> = ({ onFrame, landmarks, prediction, enable
       }
       const c = captureCanvasRef.current;
       
-      // Process as fast as possible for 60 FPS target
-      if (v && c && v.readyState === 4) {
-        lastFrameTime.current = time;
-        
-        const targetWidth = 640;
-        const targetHeight = 360; // 16:9
-        
-        if (c.width !== targetWidth || c.height !== targetHeight) {
-          c.width = targetWidth;
-          c.height = targetHeight;
-        }
+      // Throttle to 20 FPS (50ms) to match "perfect" archive performance
+      if (v && c && v.readyState === 4 && time - lastCaptureTime.current > 50) {
+        if (connected && !processingRef.current) {
+          lastCaptureTime.current = time;
+          
+          // Target resolution 320x180 (Optimized for i5-4440)
+          const targetWidth = 320;
+          const targetHeight = 180;
+          
+          if (c.width !== targetWidth || c.height !== targetHeight) {
+            c.width = targetWidth;
+            c.height = targetHeight;
+          }
 
-        const ctx = c.getContext('2d', { willReadFrequently: true });
-        if (ctx) {
-          ctx.drawImage(v, 0, 0, targetWidth, targetHeight);
-          onFrame(ctx.getImageData(0, 0, targetWidth, targetHeight));
+          const ctx = c.getContext('2d', { alpha: false });
+          if (ctx) {
+            ctx.drawImage(v, 0, 0, targetWidth, targetHeight);
+            // Direct Base64 conversion (Faster than getImageData + separate canvas)
+            const b64 = c.toDataURL('image/jpeg', 0.6).split(',')[1];
+            onFrame(b64);
+          }
         }
       }
       frameId = requestAnimationFrame(process);
     };
     frameId = requestAnimationFrame(process);
     return () => cancelAnimationFrame(frameId);
-  }, [onFrame]);
+  }, [onFrame, connected]);
+
+  // Reset processing lock when prediction updates (meaning backend responded)
+  useEffect(() => {
+    processingRef.current = false;
+  }, [prediction, landmarks]);
 
   // 3. Landmark Drawing & Floating Words
   const [floatingWords, setFloatingWords] = useState<{id: number, text: string, x: number, y: number}[]>([]);

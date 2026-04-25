@@ -9,7 +9,10 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from services.holistic_tracker import HolisticTracker
 
 # Define the gestures we want to collect
-GESTURES = ["A", "B", "C", "Hello", "Thank_You"]
+ALPHABET = list("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+NUMBERS = [str(i) for i in range(10)]
+PHRASES = ["Hello", "Thank_You", "Yes", "No", "Please", "Sorry"]
+GESTURES = ALPHABET + NUMBERS + PHRASES
 
 # Settings
 FRAMES_PER_GESTURE = 100

@@ -96,22 +96,9 @@ export default function Home() {
   const wsUrl = process.env.NEXT_PUBLIC_WS_URL || "ws://127.0.0.1:8000/ws/video";
   const { connected, sendMessage } = useWebSocket(wsUrl, onMessage);
 
-  const handleFrame = useCallback((frame: ImageData) => {
-    if (connected && cameraEnabled && !processingRef.current) {
-      processingRef.current = true;
-      
-      if (!conversionCanvasRef.current) {
-        conversionCanvasRef.current = document.createElement('canvas');
-      }
-      const canvas = conversionCanvasRef.current;
-      canvas.width = frame.width;
-      canvas.height = frame.height;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.putImageData(frame, 0, 0);
-        const b64 = canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
-        sendMessage({ frame: b64, timestamp: Date.now() });
-      }
+  const handleFrame = useCallback((b64: string) => {
+    if (connected && cameraEnabled) {
+      sendMessage({ frame: b64, timestamp: Date.now() });
     }
   }, [connected, cameraEnabled, sendMessage]);
 

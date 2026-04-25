@@ -23,20 +23,32 @@ export function useWebSocket(url: string, onMessage: (data: any) => void) {
         wsRef.current.close();
       }
 
-      // Force 127.0.0.1 for local development to avoid DNS issues with 'localhost'
-      const targetUrl = url.includes('localhost') ? url.replace('localhost', '127.0.0.1') : url;
+      // Use current window host if url is relative or if we want to match the page origin's interface
+      let targetUrl = url;
+      if (typeof window !== 'undefined') {
+        const isLocalhost = window.location.hostname === 'localhost';
+        const isIP = window.location.hostname === '127.0.0.1';
+        
+        if (isLocalhost && url.includes('127.0.0.1')) {
+          targetUrl = url.replace('127.0.0.1', 'localhost');
+        } else if (isIP && url.includes('localhost')) {
+          targetUrl = url.replace('localhost', '127.0.0.1');
+        }
+      }
+      
       console.log(`[WebSocket] 🛰️ Neural Link: Initiating connection to ${targetUrl}...`);
       
       try {
         const ws = new WebSocket(targetUrl);
         wsRef.current = ws;
+        let heartbeatInterval: NodeJS.Timeout | null = null;
 
         const connectionTimeout = setTimeout(() => {
           if (ws.readyState !== WebSocket.OPEN) {
-            console.warn('[WebSocket] ⏳ Connection timeout. Retrying...');
+            console.warn('[WebSocket] ⏳ Connection timeout. Re-evaluating link...');
             ws.close();
           }
-        }, 5000);
+        }, 15000); // 15s for heavy model load cold starts
 
         ws.onopen = () => {
           clearTimeout(connectionTimeout);
@@ -44,11 +56,19 @@ export function useWebSocket(url: string, onMessage: (data: any) => void) {
           setConnected(true);
           setError(null);
           console.log('[WebSocket] ✅ Neural Link: Connection active.');
+          
+          // Start heartbeat
+          heartbeatInterval = setInterval(() => {
+            if (ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({ type: 'ping' }));
+            }
+          }, 10000);
         };
 
         ws.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
+            if (data.type === 'pong') return; // Heartbeat response
             onMessageRef.current(data);
           } catch (e) {
             console.error('[WebSocket] ❌ Neural Link: Payload parse error.', e);
@@ -57,8 +77,10 @@ export function useWebSocket(url: string, onMessage: (data: any) => void) {
 
         ws.onclose = (event) => {
           clearTimeout(connectionTimeout);
+          if (heartbeatInterval) clearInterval(heartbeatInterval);
           setConnected(false);
-          console.log(`[WebSocket] 🔌 Neural Link: Disconnected (Code: ${event.code})`);
+          const reason = event.wasClean ? 'Normal' : 'Abnormal';
+          console.log(`[WebSocket] 🔌 Neural Link: Disconnected (${reason}, Code: ${event.code})`);
           
           if (!cleanup) {
             const delay = 3000;
@@ -69,9 +91,15 @@ export function useWebSocket(url: string, onMessage: (data: any) => void) {
 
         ws.onerror = (err) => {
           clearTimeout(connectionTimeout);
-          // err is an Event, not an Error object, so it won't show useful info in console.error directly
-          setError(`Link failure. Ensure SignBridge Engine is running at ${targetUrl}`);
-          console.error('[WebSocket] ⚠️ Neural Link: Interface error detected.');
+          if (heartbeatInterval) clearInterval(heartbeatInterval);
+          // Detailed logging for connection failure
+          console.error('[WebSocket] ⚠️ Neural Link: Interface error detected.', {
+            url: targetUrl,
+            readyState: ws.readyState,
+            protocol: ws.protocol,
+            timestamp: new Date().toISOString()
+          });
+          setError(`Link failure. Ensure SignBridge Engine is reachable at ${targetUrl}`);
         };
       } catch (e) {
         console.error('[WebSocket] 💥 Neural Link: Critical failure.', e);

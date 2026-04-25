@@ -118,6 +118,34 @@ class HeuristicPredictor:
 
         # --- STATIC SIGNS ---
         
+        # HELLO (All fingers up)
+        if total_up == 5:
+            return "HELLO", 0.95
+
+        # PEACE / V (Index + Middle)
+        if not t and i and m and not r and not p:
+            return "PEACE", 0.92
+
+        # I LOVE YOU (Thumb + Index + Pinky)
+        if t and i and not m and not r and p:
+            return "I LOVE YOU", 0.95
+
+        # CALL (Thumb + Pinky)
+        if t and not i and not m and not r and p:
+            return "CALL", 0.92
+
+        # WATER / W (Index + Middle + Ring)
+        if not t and i and m and r and not p:
+            return "WATER", 0.90
+
+        # ROCK (Index + Pinky)
+        if not t and i and not m and not r and p:
+            return "ROCK", 0.88
+
+        # PROMISE (Only Pinky)
+        if not t and not i and not m and not r and p:
+            return "PROMISE", 0.85
+
         # HELP (Palm of one hand on top of fist or open palm with other hand nearby)
         # For simplicity: All fingers up + Hand positioned low
         if total_up == 5 and wrist["y"] > 0.7:

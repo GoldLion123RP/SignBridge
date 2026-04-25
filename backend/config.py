@@ -34,8 +34,9 @@ class Config:
     DEBUG: bool = os.getenv("DEBUG", "True").lower() in ("true", "1", "yes")
 
     # Optimization
-    ENABLE_FACE_TRACKING: bool = os.getenv("ENABLE_FACE_TRACKING", "True").lower() in ("true", "1", "yes")
-    ENABLE_POSE_TRACKING: bool = os.getenv("ENABLE_POSE_TRACKING", "True").lower() in ("true", "1", "yes")
+    ENABLE_FACE_TRACKING: bool = os.getenv("ENABLE_FACE_TRACKING", "False").lower() in ("true", "1", "yes")
+    ENABLE_POSE_TRACKING: bool = os.getenv("ENABLE_POSE_TRACKING", "False").lower() in ("true", "1", "yes")
+    SMOOTH_LANDMARKS: bool = os.getenv("SMOOTH_LANDMARKS", "False").lower() in ("true", "1", "yes")
 
     # ML
     LSTM_SEQUENCE_LENGTH: int = 30

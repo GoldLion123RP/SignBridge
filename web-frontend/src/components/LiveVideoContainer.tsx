@@ -3,7 +3,7 @@ import CameraCapture from './CameraCapture';
 import { Camera, CameraOff, Maximize2, ShieldCheck, Zap } from 'lucide-react';
 
 interface Props {
-  onFrame: (frame: ImageData) => void;
+  onFrame: (frame: string) => void;
   connected: boolean;
   cameraEnabled: boolean;
   onCameraToggle: () => void;
@@ -59,6 +59,7 @@ export const LiveVideoContainer = memo(({ onFrame, connected, cameraEnabled, onC
           <CameraCapture 
             onFrame={onFrame} 
             enabled={cameraEnabled} 
+            connected={connected}
             landmarks={landmarks} 
             prediction={prediction}
           />
