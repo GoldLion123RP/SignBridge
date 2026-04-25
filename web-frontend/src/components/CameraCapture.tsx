@@ -208,6 +208,13 @@ const CameraCapture: React.FC<Props> = ({ onFrame, landmarks, prediction, enable
       <video ref={videoRef} autoPlay playsInline muted className="max-w-full max-h-full object-contain mirror" />
       <canvas ref={overlayRef} className="absolute top-0 left-0 w-full h-full pointer-events-none mirror" />
       
+      {/* Safe Zone Overlay */}
+      <div className="absolute inset-0 border-[40px] border-black/20 pointer-events-none flex items-center justify-center">
+        <div className="w-[80%] h-[80%] border-2 border-dashed border-white/20 rounded-2xl flex items-center justify-center">
+          <div className="absolute top-8 text-white/40 text-xs font-medium uppercase tracking-[0.2em]">Position hands inside safe zone</div>
+        </div>
+      </div>
+
       {/* Floating Words Overlay */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         {floatingWords.map(word => (

@@ -14,9 +14,8 @@ export const SystemAnalytics = memo(({ prediction, latency }: Props) => {
       <div className="absolute top-0 right-0 w-32 h-32 bg-[#00FF66]/5 rounded-full blur-3xl -translate-y-16 translate-x-16" />
       
       <div className="flex items-center gap-3 mb-10">
-         <div className="w-8 h-8 bg-purple-500/10 rounded-xl flex items-center justify-center border border-purple-500/20">
-            <Gauge size={16} className="text-purple-400" />
-         </div>
+         <div className="w-8 h-8 bg-teal-500/10 rounded-xl flex items-center justify-center border border-teal-500/20">
+            <Gauge size={16} className="text-teal-400" />         </div>
          <h3 className="text-xs font-black text-white uppercase tracking-[0.2em]">Neural Analytics</h3>
       </div>
 

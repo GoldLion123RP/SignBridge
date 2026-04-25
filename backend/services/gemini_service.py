@@ -57,28 +57,39 @@ Please create a coherent sentence that makes sense in context. If the words don'
             return None
 
     def translate_sign_to_text(self, gestures: List[str], context: str = "") -> Optional[str]:
-        """Translate a sequence of sign language gestures into text."""
+        """Translate a sequence of sign language gestures into text, handling ISL's SOV structure."""
         if not gestures:
             return None
 
-        prompt = f"""You are an expert in sign language translation. Translate this sequence of gestures into natural English text:
+        prompt = f"""You are an expert in Indian Sign Language (ISL) translation. 
+ISL typically follows a Subject-Object-Verb (SOV) structure, uses minimal function words, and places questions/negations at the end.
 
-Gestures: {', '.join(gestures)}
+Translate this sequence of gestures into natural, grammatically correct English:
+
+Gestures (SOV order): {', '.join(gestures)}
 
 Context: {context}
 
-Please provide a grammatically correct sentence or phrase that represents what the person is signing. If the gestures don't form a complete thought, return None."""
+Translation Rules:
+1. Convert SOV (e.g., "I apple eat") to SVO ("I am eating an apple").
+2. Infer missing articles, prepositions, and verb tenses from context.
+3. Handle ISL question markers if present at the end.
+4. Provide a single, clean, natural English sentence.
+
+Translation:"""
 
         try:
             response = self.client.models.generate_content(
                 model=self.model,
-                prompt=prompt,
-                temperature=self.temperature,
-                top_p=self.top_p,
-                max_tokens=self.max_tokens
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    temperature=0.3, # Lower temperature for translation accuracy
+                    top_p=self.top_p,
+                    max_output_tokens=self.max_tokens
+                )
             )
 
-            return response.candidates[0].content if response.candidates else None
+            return response.text if response.text else None
 
         except Exception as e:
             print(f"Error translating gestures: {e}")
