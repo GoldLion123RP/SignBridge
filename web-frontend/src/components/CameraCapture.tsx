@@ -72,9 +72,11 @@ const CameraCapture: React.FC<Props> = ({ onFrame, landmarks, prediction, enable
       }
       const c = captureCanvasRef.current;
       
-      // Throttle to 20 FPS (50ms) to match "perfect" archive performance
+      // Throttle to 20 FPS (50ms)
       if (v && c && v.readyState === 4 && time - lastCaptureTime.current > 50) {
+        // IMPORTANT: Only send if not currently processing to avoid queue buildup
         if (connected && !processingRef.current) {
+          processingRef.current = true; // Lock processing
           lastCaptureTime.current = time;
           
           // Target resolution 320x180 (Optimized for i5-4440)
@@ -89,7 +91,6 @@ const CameraCapture: React.FC<Props> = ({ onFrame, landmarks, prediction, enable
           const ctx = c.getContext('2d', { alpha: false });
           if (ctx) {
             ctx.drawImage(v, 0, 0, targetWidth, targetHeight);
-            // Direct Base64 conversion (Faster than getImageData + separate canvas)
             const b64 = c.toDataURL('image/jpeg', 0.6).split(',')[1];
             onFrame(b64);
           }
@@ -117,7 +118,7 @@ const CameraCapture: React.FC<Props> = ({ onFrame, landmarks, prediction, enable
       setFloatingWords(prev => [...prev, { 
         id, 
         text: prediction.gesture, 
-        x: 40 + Math.random() * 20, // Randomish center
+        x: 40 + Math.random() * 20, 
         y: 60 
       }]);
       setTimeout(() => {
@@ -137,7 +138,7 @@ const CameraCapture: React.FC<Props> = ({ onFrame, landmarks, prediction, enable
       }
     };
     window.addEventListener('resize', updateSize);
-    updateSize(); // Initial call
+    updateSize();
     return () => window.removeEventListener('resize', updateSize);
   }, []);
 
@@ -152,49 +153,43 @@ const CameraCapture: React.FC<Props> = ({ onFrame, landmarks, prediction, enable
 
     if (!landmarks) return;
 
-    // --- DRAW POSE (Blue) ---
-    if (landmarks.pose) {
-      const pts = landmarks.pose.map((p: any) => ({ x: p.x * o.width, y: p.y * o.height }));
-      ctx.strokeStyle = '#1A73E8'; // Blue
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      const poseLinks = [
-        [11,12,24,23,11], [11,13,15], [12,14,16], // Upper body
-        [23,25,27], [24,26,28] // Legs
-      ];
-      poseLinks.forEach(path => {
-        if (pts[path[0]]) {
-          ctx.moveTo(pts[path[0]].x, pts[path[0]].y);
-          path.slice(1).forEach(i => pts[i] && ctx.lineTo(pts[i].x, pts[i].y));
-        }
-      });
-      ctx.stroke();
-    }
+    // Calculate actual video render dimensions inside the object-contain container
+    const videoRatio = v.videoWidth / v.videoHeight;
+    const containerRatio = o.width / o.height;
+    let drawWidth = o.width;
+    let drawHeight = o.height;
+    let offsetX = 0;
+    let offsetY = 0;
+    
+    if (v.videoWidth === 0 || v.videoHeight === 0) return;
 
-    // --- DRAW FACE (Yellow) ---
-    if (landmarks.face) {
-      ctx.fillStyle = '#FFEA00'; // Yellow
-      ctx.beginPath();
-      landmarks.face.forEach((p: any) => {
-        ctx.moveTo(p.x * o.width, p.y * o.height);
-        ctx.arc(p.x * o.width, p.y * o.height, 1, 0, 2 * Math.PI);
-      });
-      ctx.fill();
+    if (videoRatio > containerRatio) {
+      drawHeight = o.width / videoRatio;
+      offsetY = (o.height - drawHeight) / 2;
+    } else {
+      drawWidth = o.height * videoRatio;
+      offsetX = (o.width - drawWidth) / 2;
     }
 
     // --- DRAW HANDS (Red/Green) ---
     if (landmarks.hands) {
       landmarks.hands.forEach((hand: any) => {
         const isLeft = hand.hand_label === 'Left';
-        const pts = hand.landmarks.map((p: any) => ({ x: p.x * o.width, y: p.y * o.height }));
+        // Landmark points are normalized 0.0 - 1.0
+        const pts = hand.landmarks.map((p: any) => ({ 
+          x: (p.x * drawWidth) + offsetX, 
+          y: (p.y * drawHeight) + offsetY 
+        }));
         
-        ctx.strokeStyle = isLeft ? '#FF3D00' : '#00E676'; // Red for Left, Green for Right
+        ctx.strokeStyle = isLeft ? '#FF3D00' : '#00E676';
         ctx.lineWidth = 4;
         ctx.beginPath();
         const links = [[0,1,2,3,4], [0,5,6,7,8], [0,17,18,19,20], [5,9,13,17], [9,10,11,12], [13,14,15,16]];
         links.forEach(path => {
-          ctx.moveTo(pts[path[0]].x, pts[path[0]].y);
-          path.slice(1).forEach(i => ctx.lineTo(pts[i].x, pts[i].y));
+          if (pts[path[0]]) {
+            ctx.moveTo(pts[path[0]].x, pts[path[0]].y);
+            path.slice(1).forEach(i => pts[i] && ctx.lineTo(pts[i].x, pts[i].y));
+          }
         });
         ctx.stroke();
 

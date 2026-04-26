@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import React, { memo, useRef } from 'react';
 import CameraCapture from './CameraCapture';
 import { Camera, CameraOff, Maximize2, ShieldCheck, Zap } from 'lucide-react';
 
@@ -12,8 +12,20 @@ interface Props {
 }
 
 export const LiveVideoContainer = memo(({ onFrame, connected, cameraEnabled, onCameraToggle, landmarks, prediction }: Props) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const toggleFullScreen = () => {
+    if (!document.fullscreenElement) {
+      containerRef.current?.requestFullscreen().catch(err => {
+        console.error(`Error attempting to enable full-screen mode: ${err.message}`);
+      });
+    } else {
+      document.exitFullscreen();
+    }
+  };
+
   return (
-    <div className="w-full h-full flex flex-col gap-4">
+    <div className="w-full h-full flex flex-col gap-4" ref={containerRef}>
       {/* Header/Toggle Row */}
       <div className="flex items-center justify-between px-2">
          <div className="flex items-center gap-3">
@@ -80,7 +92,10 @@ export const LiveVideoContainer = memo(({ onFrame, connected, cameraEnabled, onC
 
         {/* Corner Brackets */}
         <div className="absolute bottom-8 right-8 z-30 opacity-0 group-hover:opacity-100 transition-opacity">
-           <button className="w-10 h-10 bg-black/60 hover:bg-[#00FF66] hover:text-black backdrop-blur-md rounded-xl border border-white/10 flex items-center justify-center transition-all">
+           <button 
+              onClick={toggleFullScreen}
+              className="w-10 h-10 bg-black/60 hover:bg-[#00FF66] hover:text-black backdrop-blur-md rounded-xl border border-white/10 flex items-center justify-center transition-all"
+           >
               <Maximize2 size={16} />
            </button>
         </div>

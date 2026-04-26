@@ -1,7 +1,7 @@
 import tensorflow as tf
 import gc
 from tensorflow.keras import backend as K
-from services.holistic_tracker import HolisticTracker
+from services.hand_tracker import HandTracker
 from services.lstm_predictor import LSTMGesturePredictor
 from config import config
 
@@ -23,13 +23,13 @@ class SignLanguagePipeline:
             self._tracker = None
             self._predictor = None
             SignLanguagePipeline._initialized = True
-            print("[Pipeline] Singleton initialized.")
+            print("[Pipeline] Singleton initialized with HandTracker.")
 
     @property
-    def tracker(self) -> HolisticTracker:
+    def tracker(self) -> HandTracker:
         if self._tracker is None:
-            print("[Pipeline] Loading HolisticTracker...")
-            self._tracker = HolisticTracker()
+            print("[Pipeline] Loading HandTracker (Fast)...")
+            self._tracker = HandTracker(model_complexity=0)
         return self._tracker
 
     @property

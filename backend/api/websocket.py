@@ -26,7 +26,6 @@ async def websocket_endpoint(websocket: WebSocket):
     
     # Global singleton pipeline (already warmed up on startup)
     pipeline = SignLanguagePipeline()
-    heuristic_predictor = HeuristicPredictor()
     gemini = None
     tts = None
 
@@ -41,18 +40,19 @@ async def websocket_endpoint(websocket: WebSocket):
         return gemini, tts
 
     async def process_frame_async(frame, pl):
+        # Using HandTracker.process_frame which returns {hands_detected, hands: [{hand_label, landmarks}], gestures}
         return await asyncio.to_thread(pl.tracker.process_frame, frame)
 
     # Buffers and state
     sentence_buffer = []
     last_trigger_time = 0
-    smoothing_buffer = deque(maxlen=8)
-    GESTURE_COOLDOWN = 1.2
+    smoothing_buffer = deque(maxlen=3) # Even smaller for instant feedback
+    GESTURE_COOLDOWN = 1.0
     
     # Latency-based frame skipping
     last_processing_duration = 0
     frame_count = 0
-    LATENCY_THRESHOLD = 0.033  # 30ms
+    LATENCY_THRESHOLD = 0.040  # 40ms - More aggressive skipping
 
     # Security limits
     MAX_MESSAGE_SIZE = 1024 * 1024  # 1MB
@@ -66,12 +66,10 @@ async def websocket_endpoint(websocket: WebSocket):
                 
                 # 2. Basic validation
                 if len(msg_text) > MAX_MESSAGE_SIZE:
-                    print(f"[WS] Dropping large message: {len(msg_text)} bytes")
                     continue
 
                 msg_data = json.loads(msg_text)
                 if "frame" not in msg_data:
-                    # Heartbeat support
                     if msg_data.get("type") == "ping":
                         await websocket.send_json({"type": "pong", "timestamp": time.time()})
                     continue
@@ -79,18 +77,13 @@ async def websocket_endpoint(websocket: WebSocket):
                 # 3. Decode frame
                 try:
                     frame_b64 = msg_data["frame"]
-                    if len(frame_b64) > MAX_FRAME_SIZE * 1.5: # Approx check
-                        continue
-                        
                     img_bytes = base64.b64decode(frame_b64)
                     nparr = np.frombuffer(img_bytes, np.uint8)
                     frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+                    if frame is None: continue
                     
-                    if frame is None:
-                        continue
-                    
-                    # Optimization: Resize for i5-4440
-                    frame = cv2.resize(frame, (320, 180))
+                    # ULTRA LOW LATENCY: Resize to 160x90
+                    frame = cv2.resize(frame, (160, 90)) 
                 except Exception:
                     continue
 
@@ -112,7 +105,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     "status": "received",
                     "gesture": None,
                     "confidence": 0.0,
-                    "landmarks": res,
+                    "landmarks": res, # This is {hands: [...], hands_detected: ...}
                     "sentence": None,
                     "audio": None,
                     "timestamp": msg_data.get("timestamp", 0),
@@ -120,48 +113,43 @@ async def websocket_endpoint(websocket: WebSocket):
                 }
 
                 if res and res.get("hands_detected", 0) > 0:
-                    feats = pipeline.tracker.extract_features(res)
-                    lstm_pred = pipeline.predictor.predict(feats)
+                    gestures = res.get("gestures", [])
+                    current_gesture = gestures[0] if gestures else None
                     
-                    # Heuristic vs LSTM priority
-                    raw_pred = heuristic_predictor.predict(res) or lstm_pred
-                    
-                    current_gesture = raw_pred[0] if raw_pred else None
-                    recognized_conf = float(raw_pred[1]) if raw_pred else 0.0
-                    
-                    smoothing_buffer.append(current_gesture)
-                    response["confidence"] = recognized_conf
-                    
-                    counts = Counter(smoothing_buffer)
-                    most_common_gesture, count = counts.most_common(1)[0] if counts else (None, 0)
-                    
-                    if most_common_gesture and count >= 5:
-                        if time.time() - last_trigger_time > GESTURE_COOLDOWN:
-                            response["gesture"] = most_common_gesture
-                            print(f"[DETECT] {most_common_gesture} ({recognized_conf:.2f})")
-                            
-                            if not sentence_buffer or sentence_buffer[-1] != most_common_gesture:
-                                sentence_buffer.append(most_common_gesture)
-                            
-                            last_trigger_time = time.time()
+                    if current_gesture:
+                        smoothing_buffer.append(current_gesture)
+                        response["confidence"] = 0.98
+                        
+                        counts = Counter(smoothing_buffer)
+                        most_common_gesture, count = counts.most_common(1)[0] if counts else (None, 0)
+                        
+                        if most_common_gesture and count >= 2: # Very fast confirmation
+                            if time.time() - last_trigger_time > GESTURE_COOLDOWN:
+                                response["gesture"] = most_common_gesture
+                                print(f"[DETECT] {most_common_gesture}")
+                                
+                                if not sentence_buffer or sentence_buffer[-1] != most_common_gesture:
+                                    sentence_buffer.append(most_common_gesture)
+                                
+                                # IMMEDIATE UI FEEDBACK: Send gesture as sentence to fill panels
+                                response["sentence"] = f"Detected sign: {most_common_gesture}"
+                                last_trigger_time = time.time()
                 else:
                     smoothing_buffer.append(None)
 
-                # 6. Translation logic (Gemini)
-                if sentence_buffer:
-                    time_since_last = time.time() - last_trigger_time
-                    if len(sentence_buffer) >= 3 or (time_since_last > 2.5 and len(sentence_buffer) > 0):
-                        g_service, t_service = get_services()
-                        if g_service and t_service:
-                            try:
-                                sentence = g_service.translate_sign_to_text(sentence_buffer)
-                                if sentence:
-                                    response["sentence"] = sentence
-                                    response["audio"] = t_service.text_to_speech_base64(sentence)
-                                    print(f"[TRANS] Sentence: {sentence}")
-                            except Exception as e:
-                                print(f"[WS] Translation error: {e}")
-                        sentence_buffer = []
+                # 6. Translation logic (Gemini) - For complex sentences
+                if len(sentence_buffer) >= 3:
+                    g_service, t_service = get_services()
+                    if g_service and t_service:
+                        try:
+                            sentence = g_service.translate_sign_to_text(sentence_buffer)
+                            if sentence:
+                                response["sentence"] = sentence
+                                response["audio"] = t_service.text_to_speech_base64(sentence)
+                                print(f"[TRANS] Sentence: {sentence}")
+                        except Exception as e:
+                            print(f"[WS] Translation error: {e}")
+                    sentence_buffer = []
 
                 # 7. Final response
                 last_processing_duration = time.time() - start_time

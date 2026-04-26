@@ -1,167 +1,115 @@
-# SignBridge AI - MediaPipe Hand Tracking Service
-
 import mediapipe as mp
 import cv2
 import numpy as np
-from typing import List, Dict, Tuple, Optional
-
+from typing import List, Tuple, Optional, Dict, Any
 
 class HandTracker:
     def __init__(
         self,
-        max_hands: int = 1,
-        min_detection_confidence: float = 0.5,
-        min_tracking_confidence: float = 0.5,
+        static_image_mode=False,
+        max_num_hands=2,
+        min_detection_confidence=0.5,
+        min_tracking_confidence=0.5,
+        model_complexity=0
     ):
         self.mp_hands = mp.solutions.hands
         self.mp_drawing = mp.solutions.drawing_utils
-
+        self.mp_drawing_styles = mp.solutions.drawing_styles
+        
         self.hands = self.mp_hands.Hands(
-            max_num_hands=max_hands,
+            static_image_mode=static_image_mode,
+            max_num_hands=max_num_hands,
             min_detection_confidence=min_detection_confidence,
             min_tracking_confidence=min_tracking_confidence,
-            static_image_mode=False,
+            model_complexity=model_complexity
         )
+        print(f"[HandTracker] Initialized with Complexity {model_complexity}")
 
-        self._frame_count = 0
+    def process_frame(self, frame: np.ndarray) -> Dict[str, Any]:
+        """Process a single frame and return landmarks and detection status."""
+        # Flip and convert to RGB
+        frame = cv2.flip(frame, 1)
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        
+        results = self.hands.process(rgb_frame)
+        
+        # Frontend expects: { hands: [ { hand_label: 'Left', landmarks: [...] } ] }
+        processed_data = {
+            "hands_detected": 0,
+            "hands": [],
+            "gestures": []
+        }
+        
+        if results.multi_hand_landmarks:
+            processed_data["hands_detected"] = len(results.multi_hand_landmarks)
+            for hand_landmarks, handedness in zip(results.multi_hand_landmarks, results.multi_handedness):
+                label = handedness.classification[0].label
+                
+                # 1. Store landmarks for frontend rendering (NESTED as expected by CameraCapture.tsx)
+                lms = []
+                for lm in hand_landmarks.landmark:
+                    lms.append({"x": lm.x, "y": lm.y, "z": lm.z})
+                
+                processed_data["hands"].append({
+                    "hand_label": label,
+                    "landmarks": lms
+                })
+                
+                # 2. Heuristic Gesture Recognition
+                fingers = self._fingers_up(hand_landmarks, label)
+                gesture = self._recognize_gesture(fingers, hand_landmarks)
+                processed_data["gestures"].append(gesture)
+                
+        return processed_data
 
-        # Hand landmarks in order
-        self.landmark_names = [
-            "wrist",
-            "thumb_cmc",
-            "thumb_mcp",
-            "thumb_ip",
-            "thumb_tip",
-            "index_finger_mcp",
-            "index_finger_pip",
-            "index_finger_dip",
-            "index_finger_tip",
-            "middle_finger_mcp",
-            "middle_finger_pip",
-            "middle_finger_dip",
-            "middle_finger_tip",
-            "ring_finger_mcp",
-            "ring_finger_pip",
-            "ring_finger_dip",
-            "ring_finger_tip",
-            "pinky_mcp",
-            "pinky_pip",
-            "pinky_dip",
-            "pinky_tip",
-        ]
+    def _fingers_up(self, hand_landmarks, handedness_label: str) -> List[bool]:
+        """Legacy logic for finger state detection."""
+        lm = hand_landmarks.landmark
+        tips = [4, 8, 12, 16, 20]
+        pips = [3, 6, 10, 14, 18]
+        fingers = []
 
-        # Important landmarks for gesture recognition
-        self.key_landmarks = [
-            4,
-            8,
-            12,
-            16,
-            20,
-        ]  # thumb_tip, index_finger_tip, middle_finger_tip, ring_finger_tip, pinky_tip
+        # Thumb
+        if handedness_label == "Right":
+            fingers.append(lm[tips[0]].x < lm[pips[0]].x)
+        else:
+            fingers.append(lm[tips[0]].x > lm[pips[0]].x)
 
-    def process_frame(self, frame: np.ndarray) -> Optional[Dict[str, any]]:
-        """Process a single video frame and return hand landmarks if detected."""
-        try:
-            # Convert frame to RGB for MediaPipe
-            image_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        # Index -> Pinky
+        for i in range(1, 5):
+            fingers.append(lm[tips[i]].y < lm[pips[i]].y)
 
-            # Process frame
-            results = self.hands.process(image_rgb)
-            self._frame_count += 1
+        return fingers
 
-            if results.multi_hand_landmarks:
-                hand_data = []
+    def _recognize_gesture(self, fingers: List[bool], hand_landmarks) -> Optional[str]:
+        """Legacy logic for gesture mapping."""
+        lm = hand_landmarks.landmark
+        t, i, m, r, p = fingers
+        total_up = sum(fingers)
 
-                for hand_landmarks in results.multi_hand_landmarks:
-                    landmarks = []
-
-                    for idx, landmark in enumerate(hand_landmarks.landmark):
-                        # Convert normalized coordinates to pixel coordinates
-                        x = int(landmark.x * frame.shape[1])
-                        y = int(landmark.y * frame.shape[0])
-                        z = landmark.z  # Depth (0 = back, 1 = front)
-
-                        landmarks.append(
-                            {
-                                "id": idx,
-                                "name": self.landmark_names[idx]
-                                if idx < len(self.landmark_names)
-                                else f"unknown_{idx}",
-                                "x": x,
-                                "y": y,
-                                "z": z,
-                            }
-                        )
-
-                    hand_data.append(landmarks)
-
-                return {
-                    "hands_detected": len(hand_data),
-                    "landmarks": hand_data,
-                    "timestamp": float(cv2.getTickCount()),
-                    "frame_shape": [frame.shape[1], frame.shape[0]],  # width, height
-                }
-            else:
-                if self._frame_count % 30 == 0:
-                    print(
-                        f"[HandTracker] No hands detected (frame {self._frame_count})"
-                    )
-
-            return None
-
-        except Exception as e:
-            print(f"Hand tracking error: {e}")
-            return None
-
-    def extract_features(self, landmarks: List[Dict[str, any]]) -> List[float]:
-        """Extract key features from hand landmarks for ML model."""
-        if not landmarks:
-            return []
-
-        features = []
-
-        try:
-            # Get key landmark positions
-            key_positions = []
-            for key_id in self.key_landmarks:
-                for landmark in landmarks:
-                    if landmark["id"] == key_id:
-                        key_positions.append(
-                            (landmark["x"], landmark["y"], landmark["z"])
-                        )
-                        break
-
-            if len(key_positions) == 5:
-                # Calculate distances between key points
-                for i in range(5):
-                    for j in range(i + 1, 5):
-                        dist = np.linalg.norm(
-                            np.array(key_positions[i]) - np.array(key_positions[j])
-                        )
-                        features.append(dist)
-
-                # Calculate angles (simplified)
-                if len(key_positions) >= 3:
-                    # Example: angle between thumb, index, middle fingertips
-                    v1 = np.array(key_positions[0]) - np.array(key_positions[1])
-                    v2 = np.array(key_positions[2]) - np.array(key_positions[1])
-                    angle = np.arccos(
-                        np.clip(
-                            np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2)),
-                            -1.0,
-                            1.0,
-                        )
-                    )
-                    features.append(angle)
-
-            # Add additional features
-            features.append(len(landmarks))  # Number of landmarks detected
-
-        except Exception as e:
-            print(f"Feature extraction error: {e}")
-
-        return features
+        if total_up == 5: return "HELLO"
+        if total_up == 0: return "YES"
+        
+        if t and not i and not m and not r and not p:
+            return "GOOD" if lm[4].y < lm[3].y else "BAD"
+            
+        if not t and i and m and not r and not p: return "PEACE"
+        if not t and i and not m and not r and not p: return "YOU"
+        
+        if t and i and m and r and p:
+            dist = ((lm[4].x - lm[8].x)**2 + (lm[4].y - lm[8].y)**2)**0.5
+            if dist < 0.06: return "OK"
+            
+        if t and i and not m and not r and p: return "I LOVE YOU"
+        if t and not i and not m and not r and p: return "CALL"
+        if not t and i and m and r and not p: return "WATER"
+        if not t and i and m and r and p: return "HELP/STOP"
+        if not t and i and not m and not r and p: return "ROCK"
+        if t and i and not m and not r and not p: return "TWO"
+        if not t and not i and m and not r and not p: return "WAIT"
+        if not t and not i and not m and not r and p: return "PROMISE"
+        
+        return None
 
     def close(self):
-        """Release MediaPipe resources."""
         self.hands.close()

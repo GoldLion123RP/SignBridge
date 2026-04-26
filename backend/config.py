@@ -5,12 +5,19 @@ from dotenv import load_dotenv
 
 # Use absolute path for .env file
 base_dir = os.path.dirname(os.path.abspath(__file__))
-# Check for .env.local or .env in the backend directory
-env_path = os.path.join(base_dir, ".env.local")
-if not os.path.exists(env_path):
-    env_path = os.path.join(base_dir, ".env")
+project_root = os.path.dirname(base_dir)
 
-load_dotenv(env_path)
+# Check for .env.local in root, then backend
+env_paths = [
+    os.path.join(project_root, ".env.local"),
+    os.path.join(base_dir, ".env.local"),
+    os.path.join(base_dir, ".env")
+]
+
+for path in env_paths:
+    if os.path.exists(path):
+        load_dotenv(path)
+        break
 
 
 class Config:
