@@ -25,40 +25,59 @@ async def websocket_endpoint(websocket: WebSocket):
     print(f"[WS] Link established: {client_host}")
     
     # Global singleton pipeline (already warmed up on startup)
-    pipeline = SignLanguagePipeline()
-    heuristic_predictor = HeuristicPredictor()
+    pipeline = None
+    heuristic_predictor = None
     gemini = None
     tts = None
-
-    def get_services():
-        nonlocal gemini, tts
-        if gemini is None and config.GEMINI_API_KEY:
-            try:
-                gemini = GeminiService(api_key=config.GEMINI_API_KEY)
-                tts = TTSService(language=config.TTS_LANGUAGE)
-            except Exception as e:
-                print(f"[WS] Service init error: {e}")
-        return gemini, tts
-
-    async def process_frame_async(frame, pl):
-        return await asyncio.to_thread(pl.tracker.process_frame, frame)
-
-    # Buffers and state
-    sentence_buffer = []
-    last_trigger_time = 0
-    smoothing_buffer = deque(maxlen=8)
-    GESTURE_COOLDOWN = 1.2
     
-    # Latency-based frame skipping
-    last_processing_duration = 0
-    frame_count = 0
-    LATENCY_THRESHOLD = 0.033  # 30ms
-
-    # Security limits
-    MAX_MESSAGE_SIZE = 1024 * 1024  # 1MB
-    MAX_FRAME_SIZE = 500 * 1024  # 500KB
-
     try:
+        # Initialize pipeline and services
+        try:
+            pipeline = SignLanguagePipeline()
+            heuristic_predictor = HeuristicPredictor()
+        except Exception as e:
+            print(f"[WS] Failed to initialize pipeline: {e}")
+            await websocket.send_json({
+                "status": "error",
+                "message": "Failed to initialize ML pipeline"
+            })
+            await websocket.close()
+            return
+
+        def get_services():
+            nonlocal gemini, tts
+            if gemini is None and config.GEMINI_API_KEY:
+                try:
+                    gemini = GeminiService(api_key=config.GEMINI_API_KEY)
+                    tts = TTSService(language=config.TTS_LANGUAGE)
+                except Exception as e:
+                    print(f"[WS] Service init error: {e}")
+            return gemini, tts
+
+        async def process_frame_async(frame, pl):
+            if pl is None or pl.tracker is None:
+                return None
+            try:
+                return await asyncio.to_thread(pl.tracker.process_frame, frame)
+            except Exception as e:
+                print(f"[WS] Frame processing error: {e}")
+                return None
+
+        # Buffers and state
+        sentence_buffer = []
+        last_trigger_time = 0
+        smoothing_buffer = deque(maxlen=8)
+        GESTURE_COOLDOWN = 1.2
+        
+        # Latency-based frame skipping
+        last_processing_duration = 0
+        frame_count = 0
+        LATENCY_THRESHOLD = 0.033  # 30ms
+
+        # Security limits
+        MAX_MESSAGE_SIZE = 1024 * 1024  # 1MB
+        MAX_FRAME_SIZE = 500 * 1024  # 500KB
+
         while True:
             try:
                 # 1. Receive message
@@ -79,7 +98,11 @@ async def websocket_endpoint(websocket: WebSocket):
                 # 3. Decode frame
                 try:
                     frame_b64 = msg_data["frame"]
-                    if len(frame_b64) > MAX_FRAME_SIZE * 1.5: # Approx check
+                    if not frame_b64:  # Empty frame
+                        continue
+                    
+                    if len(frame_b64) > MAX_FRAME_SIZE * 1.5:  # Approx check
+                        print(f"[WS] Frame too large: {len(frame_b64)} bytes")
                         continue
                         
                     img_bytes = base64.b64decode(frame_b64)
@@ -87,11 +110,18 @@ async def websocket_endpoint(websocket: WebSocket):
                     frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
                     
                     if frame is None:
+                        print("[WS] Frame decode returned None")
+                        continue
+                    
+                    # Validate frame dimensions
+                    if len(frame.shape) < 2 or frame.shape[0] <= 0 or frame.shape[1] <= 0:
+                        print(f"[WS] Invalid frame dimensions: {frame.shape}")
                         continue
                     
                     # Optimization: Resize for i5-4440
                     frame = cv2.resize(frame, (320, 180))
-                except Exception:
+                except Exception as e:
+                    print(f"[WS] Frame decode error: {e}")
                     continue
 
                 # 4. Latency-based frame skipping
@@ -105,6 +135,10 @@ async def websocket_endpoint(websocket: WebSocket):
                     continue
 
                 # 5. ML Processing
+                if pipeline is None:
+                    print("[WS] Pipeline is None, cannot process")
+                    continue
+                
                 start_time = time.time()
                 res = await process_frame_async(frame, pipeline)
                 
@@ -120,30 +154,33 @@ async def websocket_endpoint(websocket: WebSocket):
                 }
 
                 if res and res.get("hands_detected", 0) > 0:
-                    feats = pipeline.tracker.extract_features(res)
-                    lstm_pred = pipeline.predictor.predict(feats)
-                    
-                    # Heuristic vs LSTM priority
-                    raw_pred = heuristic_predictor.predict(res) or lstm_pred
-                    
-                    current_gesture = raw_pred[0] if raw_pred else None
-                    recognized_conf = float(raw_pred[1]) if raw_pred else 0.0
-                    
-                    smoothing_buffer.append(current_gesture)
-                    response["confidence"] = recognized_conf
-                    
-                    counts = Counter(smoothing_buffer)
-                    most_common_gesture, count = counts.most_common(1)[0] if counts else (None, 0)
-                    
-                    if most_common_gesture and count >= 5:
-                        if time.time() - last_trigger_time > GESTURE_COOLDOWN:
-                            response["gesture"] = most_common_gesture
-                            print(f"[DETECT] {most_common_gesture} ({recognized_conf:.2f})")
-                            
-                            if not sentence_buffer or sentence_buffer[-1] != most_common_gesture:
-                                sentence_buffer.append(most_common_gesture)
-                            
-                            last_trigger_time = time.time()
+                    try:
+                        feats = pipeline.tracker.extract_features(res)
+                        lstm_pred = pipeline.predictor.predict(feats)
+                        
+                        # Heuristic vs LSTM priority
+                        raw_pred = heuristic_predictor.predict(res) or lstm_pred
+                        
+                        current_gesture = raw_pred[0] if raw_pred else None
+                        recognized_conf = float(raw_pred[1]) if raw_pred else 0.0
+                        
+                        smoothing_buffer.append(current_gesture)
+                        response["confidence"] = recognized_conf
+                        
+                        counts = Counter(smoothing_buffer)
+                        most_common_gesture, count = counts.most_common(1)[0] if counts else (None, 0)
+                        
+                        if most_common_gesture and count >= 5:
+                            if time.time() - last_trigger_time > GESTURE_COOLDOWN:
+                                response["gesture"] = most_common_gesture
+                                print(f"[DETECT] {most_common_gesture} ({recognized_conf:.2f})")
+                                
+                                if not sentence_buffer or sentence_buffer[-1] != most_common_gesture:
+                                    sentence_buffer.append(most_common_gesture)
+                                
+                                last_trigger_time = time.time()
+                    except Exception as e:
+                        print(f"[WS] Prediction error: {e}")
                 else:
                     smoothing_buffer.append(None)
 
@@ -178,3 +215,10 @@ async def websocket_endpoint(websocket: WebSocket):
         print(f"[WS] Client disconnected: {client_host}")
     except Exception as e:
         print(f"[WS] Fatal WebSocket error: {e}")
+    finally:
+        # Ensure proper cleanup on disconnect or error
+        print(f"[WS] Cleanup: Closing connection for {client_host}")
+        try:
+            await websocket.close()
+        except Exception:
+            pass  # Connection might already be closed
