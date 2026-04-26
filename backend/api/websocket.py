@@ -166,3 +166,9 @@ async def websocket_endpoint(websocket: WebSocket):
         print(f"[WS] Client disconnected: {client_host}")
     except Exception as e:
         print(f"[WS] Fatal WebSocket error: {e}")
+    finally:
+        print(f"[WS] Cleanup: Closing connection for {client_host}")
+        try:
+            await websocket.close()
+        except Exception:
+            pass
