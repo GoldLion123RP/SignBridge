@@ -1,0 +1,41 @@
+{
+  "name": "basic",
+  "test_cases": [
+    {
+      "name": "hello",
+      "input": "HELLO",
+      "expected_output": "Hello.",
+      "criteria": [
+        "The response should be a simple greeting.",
+        "The output should be 'Hello.' or a very similar variation."
+      ]
+    },
+    {
+      "name": "i_apple_eat",
+      "input": "I, APPLE, EAT",
+      "expected_output": "I am eating an apple.",
+      "criteria": [
+        "The response should convert SOV to SVO structure.",
+        "The output should mention eating an apple."
+      ]
+    },
+    {
+      "name": "water_want",
+      "input": "WATER, WANT",
+      "expected_output": "I want water.",
+      "criteria": [
+        "The response should infer the subject 'I'.",
+        "The output should express a desire for water."
+      ]
+    },
+    {
+      "name": "you_name_what",
+      "input": "YOU, NAME, WHAT",
+      "expected_output": "What is your name?",
+      "criteria": [
+        "The response should handle the question structure correctly.",
+        "The output should be 'What is your name?'"
+      ]
+    }
+  ]
+}
