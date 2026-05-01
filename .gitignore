@@ -1,0 +1,80 @@
+# Environment variables (NEVER commit real keys)
+.env.local
+.env.production.local
+.env.development.local
+.env
+backend/.env.local
+web-frontend/.env.local
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.h5
+*.npy
+venv/
+.venv/
+.venv_old/
+*.egg-info/
+*.egg
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Python Linters / Type Checkers Cache
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+.pytype/
+.coverage
+htmlcov/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+.agent/
+.claude/
+.kilo/
+.zed/
+
+# ADK
+.adk/
+app/.adk/
+!app/.adk/session.db
+
+# OS
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Claude Code personal overrides
+AGENTS.local.md
+
+# ML Data (too large for git)
+backend/data/
+backend/models/*.h5
+
+# Audio output
+backend/audio_output/
+
+# Logs
+*.log
+error_log.txt
+error_log_cmd.txt
+
+# TensorFlow
+*.pb
+saved_model/
+
+# Byte-compiled / optimized
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt

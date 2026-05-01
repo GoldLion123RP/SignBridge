@@ -1,0 +1,62 @@
+{
+  "eval_set_id": "basic",
+  "name": "basic",
+  "eval_cases": [
+    {
+      "eval_id": "hello",
+      "conversation": [
+        {
+          "invocation_id": "inv_1",
+          "user_content": { "parts": [{ "text": "HELLO" }] },
+          "final_response": {
+            "role": "model",
+            "parts": [{ "text": "Hello." }]
+          }
+        }
+      ],
+      "session_input": { "app_name": "app", "user_id": "user_1", "state": {} }
+    },
+    {
+      "eval_id": "i_apple_eat",
+      "conversation": [
+        {
+          "invocation_id": "inv_1",
+          "user_content": { "parts": [{ "text": "I, APPLE, EAT" }] },
+          "final_response": {
+            "role": "model",
+            "parts": [{ "text": "I am eating an apple." }]
+          }
+        }
+      ],
+      "session_input": { "app_name": "app", "user_id": "user_2", "state": {} }
+    },
+    {
+      "eval_id": "water_want",
+      "conversation": [
+        {
+          "invocation_id": "inv_1",
+          "user_content": { "parts": [{ "text": "WATER, WANT" }] },
+          "final_response": {
+            "role": "model",
+            "parts": [{ "text": "I want water." }]
+          }
+        }
+      ],
+      "session_input": { "app_name": "app", "user_id": "user_3", "state": {} }
+    },
+    {
+      "eval_id": "you_name_what",
+      "conversation": [
+        {
+          "invocation_id": "inv_1",
+          "user_content": { "parts": [{ "text": "YOU, NAME, WHAT" }] },
+          "final_response": {
+            "role": "model",
+            "parts": [{ "text": "What is your name?" }]
+          }
+        }
+      ],
+      "session_input": { "app_name": "app", "user_id": "user_4", "state": {} }
+    }
+  ]
+}
