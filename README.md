@@ -50,9 +50,10 @@ It specifically targets **Indian Sign Language (ISL)**, transforming its Subject
 - Google Gemini API Key
 
 ### Backend & Agent Setup
-1. **Root Configuration**: Create a `.env` file in the root directory:
+1. **Root Configuration**: Create a `.env.local` file in the root directory:
    ```env
    GEMINI_API_KEY=your_key_here
+   JWT_SECRET=your_secret_here
    ```
 
 2. **Start Backend Engine**:
@@ -61,33 +62,31 @@ It specifically targets **Indian Sign Language (ISL)**, transforming its Subject
    uv run python main.py
    ```
 
-3. **Start ADK Agent** (In a new terminal):
-   ```bash
-   uv run python app/agent.py
-   ```
+3. **Authentication**: The backend is secured via JWT. To obtain a token, use the `/login` endpoint (default credentials: `admin`/`password`).
 
 ### Frontend Setup
 1. Navigate to the frontend directory:
    ```bash
    cd web-frontend
    ```
-2. Install dependencies and start the dev server:
+2. Install dependencies and build for production:
    ```bash
    npm install
-   npm run dev
+   npm run build
    ```
+3. Deploy to GitHub Pages (Automated via GitHub Actions).
 
 ## Development & Evaluation (ADK)
 This project utilizes the **google-agents-cli** for systematic agent testing:
-1. Install ADK: `npm install -g @google/agents-cli`
-2. Run project install: `agents-cli install`
+1. Install ADK: `uv tool install google-agents-cli`
+2. Sync dependencies: `uv sync --extra eval`
 3. Execute evaluations: `agents-cli eval run`
 
-## Performance Optimization
-SignBridge v2.0 is engineered for responsiveness on mid-range hardware:
-- **Adaptive Frame Throttling**: The frontend uses a locking mechanism (`processingRef`) to wait for backend ACKs before sending new frames, preventing queue backup.
-- **Detached Inference**: ML processing is offloaded to background threads using `asyncio.to_thread` to keep the event loop non-blocking.
-- **Lightweight Models**: Leverages MediaPipe's lightweight tracking complexity for real-time landmark extraction.
+## Performance & Benchmarks
+- **Target Hardware**: Intel i5-4440 (60 FPS Goal)
+- **Current Performance**: ~25 FPS (Headless Profiling)
+- **Bottlenecks**: Neural processing on CPU.
+- **Optimizations**: `model_complexity=0` used in MediaPipe; `asyncio.to_thread` for non-blocking ML inference.
 
 ## Security
 - **Credential Protection**: API keys are isolated in `.env` and strictly excluded from version control via `.gitignore`.
