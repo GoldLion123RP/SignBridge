@@ -103,7 +103,7 @@ export default function Home() {
     }
   }, []);
 
-  const wsUrl = process.env.NEXT_PUBLIC_WS_URL || "wss://signbridge-dn27ilm4ka-ue.a.run.app/ws/video";
+  const wsUrl = process.env.NEXT_PUBLIC_WS_URL || "wss://signbridge-backend.onrender.com/ws/video";
   const { connected, sendMessage } = useWebSocket(wsUrl, onMessage);
 
   const handleFrame = useCallback((b64: string) => {

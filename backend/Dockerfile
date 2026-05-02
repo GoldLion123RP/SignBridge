@@ -24,8 +24,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Expose the port the app runs on
-EXPOSE 8080
+# Render defaults to 10000, but we use the PORT env var
+EXPOSE 10000
 
 # Command to run the application
-# Cloud Run expects the app to listen on the PORT environment variable
-CMD ["sh", "-c", "python main.py --host 0.0.0.0 --port ${PORT:-8080}"]
+# Render expects the app to listen on the PORT environment variable
+CMD ["sh", "-c", "python main.py --host 0.0.0.0 --port ${PORT:-10000}"]

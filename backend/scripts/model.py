@@ -47,12 +47,30 @@ class LSTMModel:
         return False
 
     def save(self):
-        """Save the model to disk."""
+        """Save the model to disk in both Keras (.h5) and TFLite formats."""
         if self.model:
             # Ensure directory exists
             os.makedirs(os.path.dirname(self.model_path), exist_ok=True)
-            self.model.save(self.model_path)
-            print(f"Model saved to {self.model_path}")
+            
+            # Save Keras model
+            h5_path = self.model_path if self.model_path.endswith(".h5") else self.model_path + ".h5"
+            self.model.save(h5_path)
+            print(f"Model saved to {h5_path}")
+            
+            # Export to TFLite
+            try:
+                import tensorflow as tf
+                converter = tf.lite.TFLiteConverter.from_keras_model(self.model)
+                # Optimization for size/speed
+                converter.optimizations = [tf.lite.Optimize.DEFAULT]
+                tflite_model = converter.convert()
+                
+                tflite_path = h5_path.replace(".h5", ".tflite")
+                with open(tflite_path, 'wb') as f:
+                    f.write(tflite_model)
+                print(f"TFLite model exported to {tflite_path}")
+            except Exception as e:
+                print(f"TFLite export failed: {e}")
 
     def train(self, X: np.ndarray, y: np.ndarray, epochs: int = 10, batch_size: int = 32):
         """Train the model with prepared data."""
@@ -132,18 +150,37 @@ class DataCollector:
             os.makedirs(self.output_dir)
 
     def load_all_data(self) -> Tuple[np.ndarray, np.ndarray]:
-        """Load all .npy data from the output directory."""
+        """Load all .npy data from nested subdirectories."""
         X = []
         y = []
         
-        gestures = [f.replace(".npy", "") for f in os.listdir(self.output_dir) if f.endswith(".npy")]
-        gesture_map = {g: i for i, g in enumerate(sorted(gestures))}
+        # Get all subdirectories (labels)
+        labels = [d for d in os.listdir(self.output_dir) if os.path.isdir(os.path.join(self.output_dir, d))]
+        labels = sorted(labels)
+        label_map = {label: i for i, label in enumerate(labels)}
         
-        for gesture in gestures:
-            path = os.path.join(self.output_dir, f"{gesture}.npy")
-            data = np.load(path)
-            X.extend(data)
-            y.extend([gesture_map[gesture]] * len(data))
+        print(f"[Data] Found {len(labels)} classes: {labels}")
+
+        for label in labels:
+            label_dir = os.path.join(self.output_dir, label)
+            files = [f for f in os.listdir(label_dir) if f.endswith(".npy")]
+            
+            count = 0
+            for f in files:
+                path = os.path.join(label_dir, f)
+                data = np.load(path) # This is a (seq_len, num_features) array
+                
+                # Check if data is already sequenced or raw frames
+                if len(data.shape) == 2: # (sequence_length, num_features)
+                    X.append(data)
+                    y.append(label_map[label])
+                    count += 1
+                else: # Legacy flat data (frames, features)
+                    X.extend(data)
+                    y.extend([label_map[label]] * len(data))
+                    count += len(data)
+
+            print(f"[Data] Loaded {count} samples for '{label}'")
             
         return np.array(X), np.array(y)
 

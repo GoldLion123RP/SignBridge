@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: signbridge-backend
+    runtime: docker
+    repo: https://github.com/GoldLion123RP/SignBridge
+    plan: free # Use free tier as requested
+    region: ohio # Default region
+    dockerContext: backend
+    dockerfilePath: backend/Dockerfile
+    envVars:
+      - key: SERVER_HOST
+        value: 0.0.0.0
+      - key: SERVER_PORT
+        value: 10000
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ALLOWED_ORIGINS
+        value: "*"
+      - key: PORT
+        value: 10000
+      - key: ENABLE_FACE_TRACKING
+        value: "False" # RAM Optimization
+      - key: ENABLE_POSE_TRACKING
+        value: "False" # RAM Optimization
+      - key: HAND_TRACKER_COMPLEXITY
+        value: "0" # RAM Optimization (Lite)
+    healthCheckPath: /

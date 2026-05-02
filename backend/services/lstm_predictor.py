@@ -1,10 +1,15 @@
-# SignBridge AI - LSTM Gesture Prediction Service
+# SignBridge AI - LSTM Gesture Prediction Service (TFLite Optimized)
 
-# pyre-ignore-all-errors
 import numpy as np
-from keras.models import Sequential, load_model  # pyre-ignore
-from keras.layers import LSTM, Dense, Dropout  # pyre-ignore
-from keras.preprocessing.sequence import pad_sequences  # pyre-ignore
+try:
+    import tflite_runtime.interpreter as tflite
+except ImportError:
+    # Fallback for local development if tflite-runtime isn't installed but full TF is
+    try:
+        from tensorflow import lite as tflite
+    except ImportError:
+        tflite = None
+
 from typing import List, Tuple, Optional, Union, Any
 from collections import deque
 import os
@@ -13,22 +18,25 @@ import pickle
 class LSTMGesturePredictor:
     def __init__(
         self,
-        model_path: str = "models/lstm_gesture_model.h5",
+        model_path: str = "models/lstm_gesture_model.tflite",
         sequence_length: int = 30,
         model=None,
     ):
+        # Update path to .tflite
+        if model_path.endswith(".h5"):
+            model_path = model_path.replace(".h5", ".tflite")
+            
         self.model_path = model_path
         self.sequence_length = sequence_length
-        self.model = model
+        self.interpreter = None
+        self.input_details = None
+        self.output_details = None
         
-        # Default labels, will be updated by label_mapping.pkl if it exists
+        # Default labels
         self.gestures = ["A", "B", "C", "Hello", "Thank_You"]
         self._load_label_mapping()
         
-        self.gesture_to_id = {gesture: idx for idx, gesture in enumerate(self.gestures)}
-        self.id_to_gesture = {
-            idx: gesture for gesture, idx in self.gesture_to_id.items()
-        }
+        self.id_to_gesture = {idx: gesture for idx, gesture in enumerate(self.gestures)}
 
         # Use deque with maxlen for O(1) buffer maintenance
         self.buffer = deque(maxlen=self.sequence_length)
@@ -44,71 +52,59 @@ class LSTMGesturePredictor:
             try:
                 with open(mapping_path, 'rb') as f:
                     mapping = pickle.load(f)
-                    # mapping is usually {idx: label}
                     if isinstance(mapping, dict):
-                        # Sort by index to ensure correct order
                         sorted_indices = sorted(mapping.keys())
                         self.gestures = [mapping[i] for i in sorted_indices]
-                        print(f"Loaded {len(self.gestures)} gestures from {mapping_path}")
+                        print(f"[Predictor] Loaded {len(self.gestures)} gestures")
             except Exception as e:
-                print(f"Error loading label mapping: {e}")
+                print(f"[Predictor] Error loading labels: {e}")
 
     def _load_model(self):
-        """Load the pre-trained LSTM model."""
-        if self.model is None:
-            if os.path.exists(self.model_path):
-                try:
-                    self.model = load_model(self.model_path)
-                    print(f"Loaded LSTM model from {self.model_path}")
-                except Exception as e:
-                    print(f"Error loading model: {e}")
-                    self._create_model()
-            else:
-                print(f"Model not found at {self.model_path}, creating new model")
-                self._create_model()
+        """Load the TFLite model."""
+        if tflite is None:
+            print("[Predictor] ERROR: TFLite runtime not found.")
+            return
 
-    def _create_model(self):
-        """Create a new LSTM model architecture matching backend/scripts/model.py."""
-        self.model = Sequential([
-            LSTM(64, return_sequences=True, input_shape=(self.sequence_length, 97)),
-            Dropout(0.2),
-            LSTM(128, return_sequences=True),
-            Dropout(0.2),
-            LSTM(64, return_sequences=False),
-            Dropout(0.2),
-            Dense(64, activation='relu'),
-            Dense(len(self.gestures), activation='softmax')
-        ])
-
-        self.model.compile(
-            optimizer="adam", loss="categorical_crossentropy", metrics=["accuracy"]
-        )
-
-        print("Created new LSTM model architecture")
+        if os.path.exists(self.model_path):
+            try:
+                self.interpreter = tflite.Interpreter(model_path=self.model_path)
+                self.interpreter.allocate_tensors()
+                
+                self.input_details = self.interpreter.get_input_details()
+                self.output_details = self.interpreter.get_output_details()
+                
+                print(f"[Predictor] Loaded TFLite model from {self.model_path}")
+            except Exception as e:
+                print(f"[Predictor] Error loading TFLite model: {e}")
+        else:
+            print(f"[Predictor] Model not found at {self.model_path}")
 
     def predict(self, features: List[float]) -> Optional[Tuple[str, float]]:
-        """Predict gesture from extracted features."""
-        if not features or len(features) < 97:
-            # We expect 97 features
+        """Predict gesture from extracted features using TFLite interpreter."""
+        if self.interpreter is None:
             return None
 
-        # Add features to buffer
+        if not features or len(features) < 97:
+            return None
+
         self.buffer.append(features)
 
-        # Only predict when we have enough data
         if len(self.buffer) < self.sequence_length:
             return None
 
-        # Ensure the sequence matches the input_shape of (sequence_length, 97)
-        sequence = np.array(list(self.buffer), dtype="float32")
-        
-        # Add batch dimension: (1, sequence_length, 97)
-        sequence = np.expand_dims(sequence, axis=0)
+        # Prepare sequence: (1, sequence_length, 97)
+        sequence = np.array([list(self.buffer)], dtype="float32")
 
         try:
-            # Using model() instead of model.predict() is significantly faster for single samples
-            # as it avoids the overhead of Keras's predict() loop.
-            predictions = self.model(sequence, training=False).numpy()
+            # Set input tensor
+            self.interpreter.set_tensor(self.input_details[0]['index'], sequence)
+            
+            # Run inference
+            self.interpreter.invoke()
+            
+            # Get output tensor
+            predictions = self.interpreter.get_tensor(self.output_details[0]['index'])
+            
             prediction_idx = np.argmax(predictions[0])
             confidence = float(predictions[0][prediction_idx])
 
@@ -117,65 +113,12 @@ class LSTMGesturePredictor:
 
             if confidence > self.confidence_threshold:
                 return (gesture, confidence)
-            else:
-                return None
-
-        except Exception as e:
-            print(f"Prediction error: {e}")
             return None
 
-    def train(
-        self, X: List[List[float]], y: List[int], epochs: int = 10, batch_size: int = 32
-    ):
-        """Train the LSTM model with new data."""
-        if not X or not y:
-            print("No training data provided")
-            return
-
-        # Convert to numpy arrays
-        X_np = np.array(X)
-        y_np = np.array(y)
-
-        # Pad sequences
-        X_padded = pad_sequences(X_np, maxlen=self.sequence_length, dtype="float32")
-
-        # One-hot encode labels
-        y_encoded = np.eye(len(self.gestures))[y_np]
-
-        try:
-            # Train model
-            history = self.model.fit(
-                X_padded,
-                y_encoded,
-                epochs=epochs,
-                batch_size=batch_size,
-                validation_split=0.2,
-                verbose=1,
-            )
-
-            # Save model
-            self.model.save(self.model_path)
-            print(f"Model trained and saved to {self.model_path}")
-            return history
-
         except Exception as e:
-            print(f"Training error: {e}")
+            print(f"[Predictor] Prediction error: {e}")
             return None
 
     def clear_buffer(self):
-        """Clear the feature buffer."""
         self.buffer.clear()
         self.current_prediction = None
-
-    def get_model_summary(self) -> str:
-        """Get model architecture summary."""
-        if self.model:
-            import io
-            from contextlib import redirect_stdout
-
-            buffer = io.StringIO()
-            with redirect_stdout(buffer):
-                self.model.summary()
-
-            return buffer.getvalue()
-        return "No model available"

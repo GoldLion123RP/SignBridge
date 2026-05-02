@@ -13,6 +13,8 @@ dependencies = [
     "python-dotenv",
     "pydantic",
     "python-jose[cryptography]",
+    "yt-dlp",
+    "psutil",
     "protobuf>=4.21.6",
     "numpy>=1.26.4,<2.0.0",
 ]
