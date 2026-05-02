@@ -13,7 +13,7 @@ class GeminiService:
         self._initialize_client()
 
         # Configuration
-        self.model = "gemini-2.0-flash"
+        self.model = "gemini-1.5-flash"
         self.max_tokens = 2048
         self.temperature = 0.7
         self.top_p = 0.9

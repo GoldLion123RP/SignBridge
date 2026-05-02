@@ -1,4 +1,4 @@
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
 import json
 import base64
 import cv2
@@ -6,6 +6,7 @@ import numpy as np
 import time
 import asyncio
 from collections import deque, Counter
+from jose import jwt, JWTError
 from core.ml_pipeline import SignLanguagePipeline
 from services.heuristic_predictor import HeuristicPredictor
 from services.gemini_service import GeminiService
@@ -14,12 +15,34 @@ from config import config
 
 router = APIRouter()
 
+def verify_token(token: str):
+    try:
+        payload = jwt.decode(token, config.JWT_SECRET, algorithms=[config.JWT_ALGORITHM])
+        return payload
+    except JWTError:
+        return None
+
 @router.websocket("/ws/video")
-async def websocket_endpoint(websocket: WebSocket):
+async def websocket_endpoint(websocket: WebSocket, token: str = Query(None)):
     # Log connection request details
     origin = websocket.headers.get("origin")
     client_host = websocket.client.host if websocket.client else "unknown"
     print(f"[WS] Connection request from {client_host} (Origin: {origin})")
+
+    # 0. Auth Check
+    if not token:
+        print(f"[WS] Connection rejected: Missing token from {client_host}")
+        await websocket.close(code=4001) # custom code for missing token
+        return
+
+    payload = verify_token(token)
+    if not payload:
+        print(f"[WS] Connection rejected: Invalid token from {client_host}")
+        await websocket.close(code=4002) # custom code for invalid token
+        return
+
+    user = payload.get("sub")
+    print(f"[WS] Authenticated user: {user}")
 
     await websocket.accept()
     print(f"[WS] Link established: {client_host}")

@@ -29,6 +29,10 @@ class Config:
     # API Keys
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
 
+    # Auth
+    JWT_SECRET: str = os.getenv("JWT_SECRET", "super-secret-key-change-in-production")
+    JWT_ALGORITHM: str = os.getenv("JWT_ALGORITHM", "HS256")
+
     # CORS
     ALLOWED_ORIGINS: list = os.getenv(
         "ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://127.0.0.1:3001"

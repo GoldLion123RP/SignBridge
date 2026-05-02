@@ -1,12 +1,31 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
+from pydantic import BaseModel
+from datetime import datetime, timedelta
+from jose import jwt
 from api.websocket import router as websocket_router
 from config import config
 import uvicorn
 import asyncio
 
 app = FastAPI(title="SignBridge AI - Optimized")
+
+# Auth Models
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str
+
+def create_access_token(data: dict):
+    to_encode = data.copy()
+    expire = datetime.utcnow() + timedelta(hours=24)
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, config.JWT_SECRET, algorithm=config.JWT_ALGORITHM)
+    return encoded_jwt
 
 # Load CORS configuration
 app.add_middleware(
@@ -50,6 +69,19 @@ async def root():
         <p>Neural Link Status: <span style="color: green;">ACTIVE</span></p>
         <p>Endpoint: <code>/ws/video</code></p>
     """)
+
+@app.post("/login", response_model=TokenResponse)
+async def login(request: LoginRequest):
+    # PLACEHOLDER AUTH: In production, verify against a database
+    if request.username == "admin" and request.password == "password":
+        access_token = create_access_token(data={"sub": request.username})
+        return {"access_token": access_token, "token_type": "bearer"}
+    
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Incorrect username or password",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
 
 if __name__ == "__main__":
     uvicorn.run(app, host=config.HOST, port=config.PORT)

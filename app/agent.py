@@ -28,7 +28,7 @@ api_key = os.environ.get("GEMINI_API_KEY")
 root_agent = Agent(
     name="root_agent",
     model=Gemini(
-        model="gemini-2.0-flash",
+        model="gemini-1.5-flash",
         api_key=api_key,
         retry_options=types.HttpRetryOptions(attempts=3),
         config=types.GenerateContentConfig(
