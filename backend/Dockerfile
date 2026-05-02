@@ -4,6 +4,8 @@ FROM python:3.11-slim
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
+ENV PIP_NO_CACHE_DIR 1
+ENV PIP_DISABLE_PIP_VERSION_CHECK 1
 
 # Install system dependencies for OpenCV and MediaPipe
 RUN apt-get update && apt-get install -y \
@@ -11,22 +13,20 @@ RUN apt-get update && apt-get install -y \
     libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
-# Set the working directory in the container
-WORKDIR /app
+# Create a non-root user for security
+RUN useradd -m signbridge
+WORKDIR /home/signbridge/app
 
-# Copy the requirements file into the container at /app
+# Copy and install requirements as root (to system path)
 COPY requirements.txt .
-
-# Install any needed packages specified in requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the application code into the container at /app
-COPY . .
+# Switch to the non-root user
+COPY --chown=signbridge:signbridge . .
+USER signbridge
 
 # Expose the port the app runs on
-# Render defaults to 10000, but we use the PORT env var
 EXPOSE 10000
 
 # Command to run the application
-# Render expects the app to listen on the PORT environment variable
-CMD ["sh", "-c", "python main.py --host 0.0.0.0 --port ${PORT:-10000}"]
+CMD ["python", "main.py", "--host", "0.0.0.0", "--port", "10000"]
