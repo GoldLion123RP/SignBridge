@@ -103,7 +103,8 @@ export default function Home() {
     }
   }, []);
 
-  const wsUrl = process.env.NEXT_PUBLIC_WS_URL || "wss://signbridge-backend.onrender.com/ws/video";
+  const baseUrl = "wss://signbridge-backend.onrender.com/ws/video";
+  const wsUrl = token ? `${baseUrl}?token=${token}` : "";
   const { connected, sendMessage } = useWebSocket(wsUrl, onMessage);
 
   const handleFrame = useCallback((b64: string) => {
@@ -339,6 +340,35 @@ export default function Home() {
               
               <div className="mt-8 text-center">
                  <p className="text-[10px] font-black text-white/10 uppercase tracking-[0.4em]">SignBridge Intelligent Systems — Version 2.0.4 build-882</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </main>
+
+      {/* --- Responsive Styles --- */}
+      <style jsx global>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 5px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.05);
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(0, 255, 102, 0.2);
+        }
+        .mirror {
+          transform: scaleX(-1);
+        }
+      `}</style>
+    </div>
+  );
+}
+4 build-882</p>
               </div>
             </div>
           )}

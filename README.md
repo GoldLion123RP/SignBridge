@@ -21,11 +21,13 @@ It specifically targets **Indian Sign Language (ISL)**, transforming its Subject
 - **ADK Powered**: Built on the **Agent Development Kit (ADK)** for systematic evaluation and agentic workflow management.
 
 ## Architecture
+The system is hosted on **Render.com** (Backend) and GitHub Pages (Frontend), providing a globally accessible, auto-scaling infrastructure.
+
 ```
 ┌─────────────────────────────────┐           WebSocket (JSON + Binary)           ┌─────────────────────────────────┐
 │     Next.js 16 (Redesigned)     │ <───────────────────────────────────────────> │        FastAPI (Async)          │
 ├─────────────────────────────────┤                                               ├─────────────────────────────────┤
-│                                 │           1. Camera Frames (RAW/resized)      │                                 │
+│                                 │           1. Camera Frames (RAW/resized)      │           Render.com Host       │
 │   ┌─────────────────────────┐   │ ────────────────────────────────────────────> │   ┌─────────────────────────┐   │
 │   │     Neural Link App     │   │                                               │   │   MediaPipe (Holistic)  │   │
 │   └───────────┬─────────────┘   │                                               │   └────────────┬────────────┘   │
@@ -62,7 +64,9 @@ It specifically targets **Indian Sign Language (ISL)**, transforming its Subject
    uv run python main.py
    ```
 
-3. **Authentication**: The backend is secured via JWT. To obtain a token, use the `/login` endpoint (default credentials: `admin`/`password`).
+3. **Authentication**: The backend is secured via JWT. 
+   - Obtain a token via the `/login` endpoint (default credentials: `admin`/`password`).
+   - The WebSocket connection requires this token passed as a `token` query parameter or in the `Authorization` header during the handshake.
 
 ### Frontend Setup
 1. Navigate to the frontend directory:
