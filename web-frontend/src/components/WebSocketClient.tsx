@@ -15,6 +15,8 @@ export function useWebSocket(url: string, onMessage: (data: any) => void) {
     if (!url || typeof window === 'undefined') return;
 
     let cleanup = false;
+    let heartbeatInterval: NodeJS.Timeout | null = null;
+
     const connect = () => {
       if (cleanup) return;
       
@@ -23,7 +25,7 @@ export function useWebSocket(url: string, onMessage: (data: any) => void) {
         wsRef.current.close();
       }
 
-      // Use current window host if url is relative or if we want to match the page origin's interface
+      // ... existing URL logic ...
       let targetUrl = url;
       if (typeof window !== 'undefined') {
         const isLocalhost = window.location.hostname === 'localhost';
@@ -36,74 +38,59 @@ export function useWebSocket(url: string, onMessage: (data: any) => void) {
         }
       }
       
-      console.log(`[WebSocket] 🛰️ Neural Link: Initiating connection to ${targetUrl}...`);
-      
       try {
         const ws = new WebSocket(targetUrl);
         wsRef.current = ws;
-        let heartbeatInterval: NodeJS.Timeout | null = null;
 
         const connectionTimeout = setTimeout(() => {
           if (ws.readyState !== WebSocket.OPEN) {
-            console.warn('[WebSocket] ⏳ Connection timeout. Re-evaluating link...');
             ws.close();
           }
-        }, 15000); // 15s for heavy model load cold starts
+        }, 10000);
 
         ws.onopen = () => {
           clearTimeout(connectionTimeout);
           if (cleanup) { ws.close(); return; }
           setConnected(true);
           setError(null);
-          console.log('[WebSocket] ✅ Neural Link: Connection active.');
           
-          // Start heartbeat
+          if (heartbeatInterval) clearInterval(heartbeatInterval);
           heartbeatInterval = setInterval(() => {
-            if (ws.readyState === WebSocket.OPEN) {
-              ws.send(JSON.stringify({ type: 'ping' }));
+            if (wsRef.current?.readyState === WebSocket.OPEN) {
+              wsRef.current.send(JSON.stringify({ type: 'ping' }));
             }
-          }, 10000);
+          }, 15000);
         };
 
         ws.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
-            if (data.type === 'pong') return; // Heartbeat response
+            if (data.type === 'pong') return;
             onMessageRef.current(data);
           } catch (e) {
-            console.error('[WebSocket] ❌ Neural Link: Payload parse error.', e);
+            console.error('[WebSocket] Parse error', e);
           }
         };
 
-        ws.onclose = (event) => {
+        ws.onclose = () => {
           clearTimeout(connectionTimeout);
           if (heartbeatInterval) clearInterval(heartbeatInterval);
           setConnected(false);
-          const reason = event.wasClean ? 'Normal' : 'Abnormal';
-          console.log(`[WebSocket] 🔌 Neural Link: Disconnected (${reason}, Code: ${event.code})`);
           
           if (!cleanup) {
-            const delay = 3000;
             if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
-            reconnectTimeoutRef.current = setTimeout(connect, delay);
+            reconnectTimeoutRef.current = setTimeout(connect, 3000);
           }
         };
 
-        ws.onerror = (err) => {
+        ws.onerror = () => {
           clearTimeout(connectionTimeout);
-          if (heartbeatInterval) clearInterval(heartbeatInterval);
-          // Detailed logging for connection failure
-          console.error('[WebSocket] ⚠️ Neural Link: Interface error detected.', {
-            url: targetUrl,
-            readyState: ws.readyState,
-            protocol: ws.protocol,
-            timestamp: new Date().toISOString()
-          });
-          setError(`Link failure. Ensure SignBridge Engine is reachable at ${targetUrl}`);
         };
       } catch (e) {
-        console.error('[WebSocket] 💥 Neural Link: Critical failure.', e);
-        if (!cleanup) setTimeout(connect, 5000);
+        if (!cleanup) {
+           if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+           reconnectTimeoutRef.current = setTimeout(connect, 5000);
+        }
       }
     };
 

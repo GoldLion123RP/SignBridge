@@ -44,11 +44,6 @@ async def startup_event():
     print("="*60)
     print("🚀 SIGNBRIDGE ENGINE - INITIALIZING")
     
-    # Warm up ML Pipeline in a separate thread to avoid blocking startup
-    from core.ml_pipeline import SignLanguagePipeline
-    pipeline = SignLanguagePipeline()
-    await asyncio.to_thread(pipeline.warm_up)
-    
     print("🚀 SIGNBRIDGE ENGINE - NEURAL LINK READY")
     print(f"📡 Interface: http://{config.HOST}:{config.PORT}")
     print(f"🔗 WebSocket: ws://{config.HOST}:{config.PORT}/ws/video")

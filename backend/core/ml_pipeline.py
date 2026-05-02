@@ -79,10 +79,8 @@ class SignLanguagePipeline:
         return self._engine
 
     def warm_up(self):
-        """Pre-load models to avoid latency on first request."""
-        print("[Pipeline] Warming up models...")
-        _ = self.engine
-        print("[Pipeline] Warm-up complete.")
+        """Warm up is now optional and doesn't force all models at once."""
+        print("[Pipeline] Ready for lazy-loading.")
 
     def close(self):
         """Aggressively free resources and trigger garbage collection."""

@@ -8,6 +8,11 @@ interface Props {
   connected: boolean;
 }
 
+const TARGET_WIDTH = 320;
+const TARGET_HEIGHT = 180;
+const FRAME_THROTTLE_MS = 50; // 20 FPS
+const JPEG_QUALITY = 0.6;
+
 const CameraCapture: React.FC<Props> = memo(({ onFrame, landmarks, prediction, enabled, connected }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const captureCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -16,52 +21,9 @@ const CameraCapture: React.FC<Props> = memo(({ onFrame, landmarks, prediction, e
   const processingRef = useRef<boolean>(false);
   const lastCaptureTime = useRef<number>(0);
 
-  // 1. Optimized Camera Setup (720p source for quality overlay, but processed at low res)
-  useEffect(() => {
-    let active = true;
-    const startCamera = async () => {
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(t => t.stop());
-        streamRef.current = null;
-      }
+  // ... existing camera setup ...
 
-      if (enabled) {
-        try {
-          const constraints = {
-            video: { 
-              width: { ideal: 1280 }, 
-              height: { ideal: 720 }, 
-              frameRate: { ideal: 30 } 
-            }, 
-            audio: false 
-          };
-
-          const s = await navigator.mediaDevices.getUserMedia(constraints);
-          if (!active) {
-            s.getTracks().forEach(t => t.stop());
-            return;
-          }
-
-          streamRef.current = s;
-          if (videoRef.current) videoRef.current.srcObject = s;
-        } catch (e: any) {
-          console.error('[Camera] Error:', e);
-        }
-      }
-    };
-
-    startCamera();
-
-    return () => {
-      active = false;
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(t => t.stop());
-        streamRef.current = null;
-      }
-    };
-  }, [enabled]);
-
-  // 2. High-Speed Frame Processing with Throttling (20 FPS target)
+  // 2. High-Speed Frame Processing with Throttling
   useEffect(() => {
     let frameId: number;
     const process = (time: number) => {
@@ -72,26 +34,20 @@ const CameraCapture: React.FC<Props> = memo(({ onFrame, landmarks, prediction, e
       }
       const c = captureCanvasRef.current;
       
-      // Throttle to 20 FPS (50ms)
-      if (v && c && v.readyState === 4 && time - lastCaptureTime.current > 50) {
-        // IMPORTANT: Only send if not currently processing to avoid queue buildup
+      if (v && c && v.readyState === 4 && time - lastCaptureTime.current > FRAME_THROTTLE_MS) {
         if (connected && !processingRef.current) {
-          processingRef.current = true; // Lock processing
+          processingRef.current = true;
           lastCaptureTime.current = time;
           
-          // Target resolution 320x180 (Optimized for i5-4440)
-          const targetWidth = 320;
-          const targetHeight = 180;
-          
-          if (c.width !== targetWidth || c.height !== targetHeight) {
-            c.width = targetWidth;
-            c.height = targetHeight;
+          if (c.width !== TARGET_WIDTH || c.height !== TARGET_HEIGHT) {
+            c.width = TARGET_WIDTH;
+            c.height = TARGET_HEIGHT;
           }
 
           const ctx = c.getContext('2d', { alpha: false });
           if (ctx) {
-            ctx.drawImage(v, 0, 0, targetWidth, targetHeight);
-            const b64 = c.toDataURL('image/jpeg', 0.6).split(',')[1];
+            ctx.drawImage(v, 0, 0, TARGET_WIDTH, TARGET_HEIGHT);
+            const b64 = c.toDataURL('image/jpeg', JPEG_QUALITY).split(',')[1];
             onFrame(b64);
           }
         }
