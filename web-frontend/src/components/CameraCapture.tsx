@@ -249,6 +249,6 @@ const CameraCapture: React.FC<Props> = memo(({ onFrame, landmarks, prediction, e
       </div>
     </div>
   );
-};
+});
 
 export default CameraCapture;
